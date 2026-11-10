@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>ICBP Equity Research Terminal | Institutional Light Mode</title>
+    <title>ICBP Equity Research Terminal | Neumorphic Soft UI</title>
     <!-- Google Fonts: Inter (UI/Typography) + JetBrains Mono (Financial Tabular Data) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,14 +12,24 @@
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <style>
         :root {
-            --bg-body: #F8FAFC;
-            --bg-card: #FFFFFF;
-            --bg-subtle: #F1F5F9;
-            --border-subtle: #E2E8F0;
-            --border-strong: #CBD5E1;
+            /* Neumorphic Base Canvas */
+            --nm-bg: #E2E8F0;
+            --nm-bg-light: #EEF3F8;
+            --nm-bg-dark: #D4DCE6;
+            
+            /* Neumorphic Dual Shadows (Light Top-Left, Dark Bottom-Right) */
+            --nm-raised: 6px 6px 14px rgba(163, 177, 198, 0.6), -6px -6px 14px rgba(255, 255, 255, 0.9);
+            --nm-raised-sm: 4px 4px 9px rgba(163, 177, 198, 0.55), -4px -4px 9px rgba(255, 255, 255, 0.85);
+            --nm-raised-lg: 8px 8px 20px rgba(163, 177, 198, 0.65), -8px -8px 20px rgba(255, 255, 255, 0.95);
+            --nm-inset: inset 3px 3px 7px rgba(163, 177, 198, 0.65), inset -3px -3px 7px rgba(255, 255, 255, 0.95);
+            --nm-inset-sm: inset 2px 2px 5px rgba(163, 177, 198, 0.6), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+            
+            /* Typography & High Contrast (WCAG AA Compliance) */
             --text-main: #0F172A;
             --text-secondary: #334155;
             --text-muted: #64748B;
+            
+            /* Accents */
             --teal: #0D9488;
             --teal-light: #CCFBF1;
             --teal-dark: #0F766E;
@@ -30,9 +40,6 @@
             --red: #DC2626;
             --red-light: #FEE2E2;
             --purple: #7C3AED;
-            --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
-            --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
-            --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
         }
 
         * {
@@ -42,7 +49,7 @@
         }
 
         body {
-            background: var(--bg-body);
+            background: var(--nm-bg);
             color: var(--text-main);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 13.5px;
@@ -58,7 +65,7 @@
         }
 
         h1 { font-size: 1.45rem; line-height: 1.25; }
-        h2 { font-size: 1.12rem; margin-top: 22px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        h2 { font-size: 1.12rem; margin-top: 22px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
         h3 { font-size: 0.95rem; margin-top: 14px; margin-bottom: 6px; }
 
         #app {
@@ -66,12 +73,12 @@
             min-height: 100vh;
         }
 
-        /* Institutional Sidebar */
+        /* Neumorphic Sidebar */
         #side {
             width: 280px;
-            background: var(--bg-card);
-            border-right: 1px solid var(--border-subtle);
-            padding: 18px 16px;
+            background: var(--nm-bg);
+            box-shadow: 4px 0 16px rgba(163, 177, 198, 0.45);
+            padding: 20px 16px;
             position: sticky;
             top: 0;
             height: 100vh;
@@ -79,25 +86,28 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
+            z-index: 10;
         }
 
         .side-brand {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border-subtle);
+            gap: 12px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(163, 177, 198, 0.4);
         }
 
         .co-badge {
-            background: #0F766E;
-            color: #FFFFFF;
+            background: var(--nm-bg);
+            color: var(--teal-dark);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            font-weight: 700;
-            padding: 6px 9px;
-            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 800;
+            padding: 7px 11px;
+            border-radius: 10px;
+            box-shadow: var(--nm-raised-sm);
+            border: 1px solid rgba(255, 255, 255, 0.6);
             letter-spacing: 0.04em;
         }
 
@@ -116,7 +126,7 @@
 
         #main {
             flex: 1;
-            padding: 18px 26px;
+            padding: 20px 28px;
             max-width: 1580px;
             min-width: 0;
         }
@@ -128,27 +138,31 @@
             align-items: flex-start;
             flex-wrap: wrap;
             gap: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border-subtle);
-            margin-bottom: 14px;
+            padding: 14px 18px;
+            background: var(--nm-bg);
+            border-radius: 14px;
+            box-shadow: var(--nm-raised-sm);
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.6);
         }
 
         .header-main {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
 
         .terminal-brand-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--teal), #0F766E);
-            border-radius: 8px;
+            width: 42px;
+            height: 42px;
+            background: var(--nm-bg);
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #FFFFFF;
-            box-shadow: 0 2px 4px rgba(13, 148, 136, 0.25);
+            color: var(--teal-dark);
+            box-shadow: var(--nm-raised-sm);
+            border: 1px solid rgba(255, 255, 255, 0.6);
             flex-shrink: 0;
         }
 
@@ -167,7 +181,7 @@
         }
 
         .meta-dot {
-            color: var(--border-strong);
+            color: var(--text-muted);
             font-weight: bold;
         }
 
@@ -175,14 +189,14 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: #F1F5F9;
-            border: 1px solid var(--border-subtle);
+            background: var(--nm-bg);
             border-radius: 20px;
-            padding: 5px 12px;
+            padding: 6px 14px;
             font-size: 0.72rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-secondary);
             font-family: 'JetBrains Mono', monospace;
+            box-shadow: var(--nm-inset-sm);
         }
 
         .pulse-dot {
@@ -190,24 +204,23 @@
             height: 7px;
             border-radius: 50%;
             background: #10B981;
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
         }
 
-        /* Metric Cards (.met) */
+        /* Neumorphic Metric Cards (.met) */
         .met {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 12px 14px;
-            box-shadow: var(--shadow-xs);
-            transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+            background: var(--nm-bg);
+            border-radius: 14px;
+            padding: 14px 16px;
+            box-shadow: var(--nm-raised);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: transform 180ms ease, box-shadow 180ms ease;
             position: relative;
         }
 
         .met:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-sm);
-            border-color: var(--border-strong);
+            transform: translateY(-2px);
+            box-shadow: var(--nm-raised-lg);
         }
 
         .met .l {
@@ -215,15 +228,15 @@
             font-size: 0.68rem;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .met .v {
             color: var(--text-main);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1.28rem;
+            font-size: 1.30rem;
             font-weight: 700;
-            margin-top: 2px;
+            margin-top: 3px;
             letter-spacing: -0.02em;
             font-variant-numeric: tabular-nums;
         }
@@ -233,7 +246,7 @@
             font-size: 0.76rem;
             color: var(--text-muted);
             font-weight: 600;
-            margin-top: 2px;
+            margin-top: 3px;
             display: flex;
             align-items: center;
             gap: 3px;
@@ -252,38 +265,40 @@
         }
 
         /* Grids */
-        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .g5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-        .g6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
-        .g21 { display: grid; grid-template-columns: 2.3fr 1fr; gap: 16px; }
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .g5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+        .g6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+        .g21 { display: grid; grid-template-columns: 2.3fr 1fr; gap: 18px; }
 
         @media(max-width: 1024px) {
             #app { flex-direction: column; }
-            #side { width: 100%; height: auto; position: static; }
+            #side { width: 100%; height: auto; position: static; box-shadow: 0 4px 12px rgba(163, 177, 198, 0.4); }
             .g2, .g3, .g4, .g5, .g6, .g21 { grid-template-columns: 1fr 1fr; }
         }
         @media(max-width: 640px) {
             .g2, .g3, .g4, .g5, .g6, .g21 { grid-template-columns: 1fr; }
         }
 
-        /* Sleek Segmental Tabs (No Emojis, Pure SVG Icons) */
+        /* Neumorphic Segmental Tabs */
         .tabs {
             display: flex;
-            gap: 6px;
-            border-bottom: 1px solid var(--border-subtle);
-            margin: 12px 0 16px;
-            padding-bottom: 4px;
+            gap: 8px;
+            margin: 14px 0 18px;
+            padding: 6px;
+            background: var(--nm-bg);
+            border-radius: 14px;
+            box-shadow: var(--nm-inset-sm);
             overflow-x: auto;
         }
 
         .tabs button {
-            background: var(--bg-subtle);
-            border: 1px solid var(--border-subtle);
+            background: var(--nm-bg);
+            border: none;
             color: var(--text-muted);
-            padding: 8px 14px;
-            border-radius: 6px;
+            padding: 9px 16px;
+            border-radius: 10px;
             cursor: pointer;
             font-size: 0.84rem;
             font-weight: 600;
@@ -291,24 +306,25 @@
             align-items: center;
             gap: 6px;
             white-space: nowrap;
-            transition: all 150ms ease;
+            transition: all 160ms ease;
             user-select: none;
         }
 
         .tabs button:hover {
-            background: #E2E8F0;
             color: var(--text-main);
+            transform: translateY(-1px);
         }
 
         .tabs button.on {
-            background: var(--teal);
-            color: #FFFFFF;
-            border-color: var(--teal);
-            box-shadow: 0 1px 3px rgba(13, 148, 136, 0.3);
+            background: var(--nm-bg);
+            color: var(--teal);
+            font-weight: 700;
+            box-shadow: var(--nm-raised-sm);
+            border: 1px solid rgba(255, 255, 255, 0.6);
         }
 
         .tabs button.on svg {
-            stroke: #FFFFFF !important;
+            stroke: var(--teal) !important;
         }
 
         /* Badges */
@@ -316,50 +332,50 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 4px 14px;
-            border-radius: 6px;
+            padding: 5px 14px;
+            border-radius: 8px;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             letter-spacing: 0.06em;
             font-size: 0.95rem;
+            box-shadow: var(--nm-raised-sm);
         }
 
         .BUY {
-            background: var(--teal-light);
+            background: var(--nm-bg);
             color: var(--teal-dark);
-            border: 1px solid #A7F3D0;
+            border: 1px solid rgba(13, 148, 136, 0.35);
         }
 
         .HOLD {
-            background: var(--amber-light);
-            color: #B45309;
-            border: 1px solid #FDE68A;
+            background: var(--nm-bg);
+            color: var(--amber);
+            border: 1px solid rgba(217, 119, 6, 0.35);
         }
 
         .SELL {
-            background: var(--red-light);
-            color: #B91C1C;
-            border: 1px solid #FECACA;
+            background: var(--nm-bg);
+            color: var(--red);
+            border: 1px solid rgba(220, 38, 38, 0.35);
         }
 
-        /* Risk Cards */
+        /* Neumorphic Risk Cards */
         .risk {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 14px 16px;
+            background: var(--nm-bg);
+            border-radius: 14px;
+            padding: 16px;
             min-height: 190px;
-            box-shadow: var(--shadow-xs);
-            transition: all 160ms ease;
+            box-shadow: var(--nm-raised);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 180ms ease;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
 
         .risk:hover {
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-sm);
-            border-color: var(--border-strong);
+            transform: translateY(-2px);
+            box-shadow: var(--nm-raised-lg);
         }
 
         .risk .h {
@@ -375,10 +391,11 @@
         .risk .t {
             font-size: 0.68rem;
             font-family: 'JetBrains Mono', monospace;
-            padding: 2px 7px;
-            border-radius: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
             font-weight: 700;
             letter-spacing: 0.04em;
+            box-shadow: var(--nm-raised-sm);
         }
 
         .risk p {
@@ -389,12 +406,12 @@
         }
 
         .risk .i {
-            color: #B45309;
+            color: var(--amber);
             font-weight: 600;
-            background: #FFFBEB;
-            padding: 4px 8px;
-            border-radius: 4px;
-            border-left: 2px solid var(--amber);
+            background: rgba(217, 119, 6, 0.08);
+            padding: 5px 9px;
+            border-radius: 6px;
+            border-left: 3px solid var(--amber);
         }
 
         .note {
@@ -403,16 +420,17 @@
             line-height: 1.4;
         }
 
-        /* Table Styling */
+        /* Neumorphic Table Styling */
         table {
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             width: 100%;
             font-size: 0.82rem;
         }
 
         th, td {
-            padding: 6px 10px;
-            border-bottom: 1px solid var(--border-subtle);
+            padding: 7px 12px;
+            border-bottom: 1px solid rgba(163, 177, 198, 0.35);
             text-align: right;
             white-space: nowrap;
             color: #1E293B;
@@ -425,37 +443,39 @@
         }
 
         th {
-            color: var(--text-muted);
+            color: var(--text-secondary);
             font-weight: 700;
             text-transform: uppercase;
             font-size: 0.70rem;
             letter-spacing: 0.05em;
-            background: var(--bg-subtle);
+            background: rgba(163, 177, 198, 0.2);
+            border-bottom: 1px solid rgba(163, 177, 198, 0.5);
         }
 
         tbody tr:hover td {
-            background: #F8FAFC;
+            background: rgba(255, 255, 255, 0.35);
         }
 
         tr.hl td {
-            background: #F0FDF4;
-            color: #047857;
+            background: rgba(13, 148, 136, 0.12);
+            color: var(--teal-dark);
             font-weight: 700;
-            border-top: 1px solid #BBF7D0;
-            border-bottom: 1px solid #BBF7D0;
+            border-top: 1px solid rgba(13, 148, 136, 0.3);
+            border-bottom: 1px solid rgba(13, 148, 136, 0.3);
         }
 
         .box {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 12px 14px;
+            background: var(--nm-bg);
+            border-radius: 14px;
+            padding: 16px 18px;
             overflow: auto;
-            box-shadow: var(--shadow-xs);
+            box-shadow: var(--nm-raised);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            margin-bottom: 12px;
         }
 
         .sl {
-            margin: 8px 0;
+            margin: 10px 0;
         }
 
         .sl label {
@@ -464,28 +484,38 @@
             font-size: 0.78rem;
             color: var(--text-secondary);
             font-weight: 600;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
         }
 
         .sl label span {
             font-family: 'JetBrains Mono', monospace;
             color: var(--teal-dark);
             font-weight: 700;
+            background: var(--nm-bg);
+            padding: 1px 6px;
+            border-radius: 4px;
+            box-shadow: var(--nm-inset-sm);
         }
 
+        /* Neumorphic Sliders */
         input[type=range] {
             width: 100%;
-            height: 5px;
+            height: 6px;
             accent-color: var(--teal);
             cursor: pointer;
+            background: var(--nm-bg);
+            border-radius: 10px;
+            box-shadow: var(--nm-inset-sm);
+            outline: none;
         }
 
+        /* Neumorphic Buttons */
         button.btn, select {
-            background: var(--bg-card);
+            background: var(--nm-bg);
             color: var(--text-main);
-            border: 1px solid var(--border-strong);
-            border-radius: 6px;
-            padding: 6px 12px;
+            border: none;
+            border-radius: 10px;
+            padding: 8px 14px;
             cursor: pointer;
             font-size: 0.82rem;
             font-weight: 600;
@@ -493,32 +523,39 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            transition: all 140ms ease;
+            box-shadow: var(--nm-raised-sm);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            transition: all 160ms ease;
         }
 
         button.btn:hover {
-            border-color: var(--teal);
-            background: var(--bg-subtle);
             color: var(--teal-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--nm-raised);
+        }
+
+        button.btn:active {
+            transform: translateY(0);
+            box-shadow: var(--nm-inset-sm);
         }
 
         .seg {
             display: flex;
             gap: 4px;
             margin: 6px 0;
-            background: var(--bg-subtle);
-            padding: 3px;
-            border-radius: 6px;
-            border: 1px solid var(--border-subtle);
+            background: var(--nm-bg);
+            padding: 4px;
+            border-radius: 10px;
+            box-shadow: var(--nm-inset-sm);
         }
 
         .seg button {
             flex: 1;
             background: transparent;
             color: var(--text-muted);
-            border: 0;
-            border-radius: 4px;
-            padding: 5px 8px;
+            border: none;
+            border-radius: 7px;
+            padding: 6px 8px;
             cursor: pointer;
             font-weight: 600;
             font-size: 0.78rem;
@@ -526,23 +563,25 @@
         }
 
         .seg button.on {
-            background: var(--bg-card);
+            background: var(--nm-bg);
             color: var(--teal-dark);
             font-weight: 700;
-            box-shadow: var(--shadow-xs);
+            box-shadow: var(--nm-raised-sm);
+            border: 1px solid rgba(255, 255, 255, 0.6);
         }
 
         pre {
-            background: var(--bg-subtle);
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            padding: 12px;
+            background: var(--nm-bg);
+            border-radius: 10px;
+            padding: 14px;
             overflow: auto;
             white-space: pre-wrap;
             font-size: 0.78rem;
             max-height: 420px;
             color: var(--text-main);
             font-family: 'JetBrains Mono', monospace;
+            box-shadow: var(--nm-inset-sm);
+            border: none;
         }
 
         .ok { color: var(--teal); font-weight: 700; }
@@ -560,15 +599,15 @@
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                     </div>
                     <div>
-                        <h1>ICBP Equity Research & Valuation Terminal</h1>
+                        <h1>ICBP Equity Research &amp; Valuation Terminal</h1>
                         <div class="header-meta">
                             <span><b>Entity:</b> PT Indofood CBP Sukses Makmur Tbk</span>
                             <span class="meta-dot">•</span>
                             <span><b>Exchange:</b> IDX: ICBP.JK</span>
                             <span class="meta-dot">•</span>
-                            <span><b>Sector:</b> Consumer Staples / Food & Beverage</span>
+                            <span><b>Sector:</b> Consumer Staples / Food &amp; Beverage</span>
                             <span class="meta-dot">•</span>
-                            <span><b>Model As Of:</b> 10 Nov 2026</span>
+                            <span><b>Style:</b> Neumorphic Soft UI</span>
                         </div>
                     </div>
                 </div>
@@ -609,12 +648,12 @@
 
         function L(o = {}) {
             const b = {
-                paper_bgcolor: '#FFFFFF', plot_bgcolor: '#FFFFFF',
+                paper_bgcolor: '#E2E8F0', plot_bgcolor: '#E2E8F0',
                 font: { family: 'Inter, -apple-system, sans-serif', color: '#334155', size: 11.5 },
                 margin: { l: 55, r: 25, t: 46, b: 38 },
                 legend: { orientation: 'h', y: 1.14, font: { size: 11 } },
-                xaxis: { gridcolor: '#F1F5F9', linecolor: '#E2E8F0', zeroline: false },
-                yaxis: { gridcolor: '#F1F5F9', linecolor: '#E2E8F0', zeroline: false },
+                xaxis: { gridcolor: 'rgba(163, 177, 198, 0.35)', linecolor: 'rgba(163, 177, 198, 0.6)', zeroline: false },
+                yaxis: { gridcolor: 'rgba(163, 177, 198, 0.35)', linecolor: 'rgba(163, 177, 198, 0.6)', zeroline: false },
                 hovermode: 'x unified',
                 hoverlabel: { bgcolor: '#0F172A', font: { color: '#F8FAFC', family: 'JetBrains Mono, monospace', size: 11.5 }, bordercolor: '#0F172A' }
             };
@@ -632,7 +671,7 @@
         const T = t => ({ text: t, font: { size: 13, color: '#0F172A', family: 'Inter, sans-serif' } });
         function download(name, text, mime) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; a.click(); }
 
-        /* Sleek Gradient Sparkline with Endpoint Dot */
+        /* Neumorphic Sparkline with Gradient Fill and Endpoint Glow */
         function spark(a) {
             const w = 84, h = 22, mn = Math.min(...a), mx = Math.max(...a), r = mx - mn || 1;
             const pts = a.map((v, i) => ({
@@ -645,9 +684,9 @@
             const color = isUp ? '#0D9488' : '#DC2626';
             const polyFill = `${pts[0].x},${h} ${pStr} ${last.x},${h}`;
             return `<svg width="${w}" height="${h}" style="overflow:visible">
-                <polygon points="${polyFill}" fill="${color}" fill-opacity="0.14"/>
-                <polyline points="${pStr}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="${last.x}" cy="${last.y}" r="2.2" fill="${color}" stroke="#FFFFFF" stroke-width="1"/>
+                <polygon points="${polyFill}" fill="${color}" fill-opacity="0.16"/>
+                <polyline points="${pStr}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="${last.x}" cy="${last.y}" r="2.5" fill="${color}" stroke="#FFFFFF" stroke-width="1.2"/>
             </svg>`;
         }
 
@@ -838,24 +877,24 @@
             <div style="margin:4px 0">${met('Live / Mock Price (IDR)', fmt(LAST), spct(chg, 2) + ' d/d', dcls(chg))}</div>
             <div class="g2">${met('Target Price', 'IDR ' + fmt(X.tp))}${met('Implied Upside', spct(X.up), '', dcls(X.up))}</div>
             
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--nm-bg);border-radius:10px;box-shadow:var(--nm-inset-sm);">
                 <span class="badge ${X.rt}">${X.rt}</span>
-                <span class="note" style="font-weight:600;color:#0F766E;">DCF ${scen} Model</span>
+                <span class="note" style="font-weight:700;color:var(--teal-dark);">DCF ${scen} Model</span>
             </div>
 
             <div style="margin-top:6px;">
-                <div class="note" style="font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Active Valuation Scenario</div>
+                <div class="note" style="font-weight:700;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Active Valuation Scenario</div>
                 <div class="seg">${SC.map(s => `<button class="${s === scen ? 'on' : ''}" onclick="setScen('${s}')">${s}</button>`).join('')}</div>
             </div>
 
-            <div style="margin-top:6px;">
+            <div style="margin-top:8px;">
                 <button class="btn" style="width:100%" onclick="exportCSV()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Export Cleaned Financials (CSV)
                 </button>
             </div>
-            <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border-subtle);">
-                <p class="note" style="font-size:0.72rem;line-height:1.4;">Institutional Equity Research Terminal. Complete SQLite view pipeline & quarterly reporting toggles available in <code>app.py</code>.</p>
+            <div style="margin-top:auto;padding-top:12px;border-top:1px solid rgba(163,177,198,0.4);">
+                <p class="note" style="font-size:0.72rem;line-height:1.4;">Neumorphic Research Terminal. Full SQLite view pipeline & quarterly reporting toggles available in <code>app.py</code>.</p>
             </div>`;
         }
         function setScen(s) { scen = s; update(); }
@@ -868,9 +907,8 @@
         /* ========================= TAB 0: SUMMARY ========================= */
         function risk(t, sev, body, imp, mit) {
             const c = { High: C.red, Medium: C.amber, Low: C.teal }[sev];
-            const bg = { High: '#FEF2F2', Medium: '#FFFBEB', Low: '#F0FDF4' }[sev];
             return `<div class="risk" style="border-left:4px solid ${c}">
-                <div class="h"><span>${t}</span><span class="t" style="background:${bg};color:${c};border:1px solid ${c}33">${sev.toUpperCase()}</span></div>
+                <div class="h"><span>${t}</span><span class="t" style="color:${c};">${sev.toUpperCase()}</span></div>
                 <p>${body}</p>
                 <p class="i">${imp}</p>
                 <p><b>Mitigant:</b> ${mit}</p>
@@ -883,19 +921,19 @@
             const fxI = mx({ fx: .10 }).depsP, whI = mx({ wheat: .20 }).depsP, cpI = mx({ cpo: .20 }).depsP, inI = mx({ infl: 1 }).depsP;
             $('t0').innerHTML = `<div class="g21">
                 <div>
-                    <h2>Investment Thesis & Equity Research Report</h2>
-                    <div style="background:#FFFFFF;border:1px solid var(--border-subtle);border-radius:8px;padding:14px;box-shadow:var(--shadow-xs);margin-bottom:12px;">
-                        <p style="font-size:0.95rem;margin-bottom:8px;"><b>Recommendation: <span class="up">${X.rt}</span> | Target Price IDR ${fmt(X.tp)} (${spct(X.up)}) | DCF Scenario: ${scen}</b></p>
-                        <p style="margin-bottom:8px;"><b>1. Moat & Distribution Scale.</b> ICBP is Indonesia's dominant packaged food franchise (Indomie, Pop Mie) holding a defensible domestic market share backed by extensive cold-chain distribution, consumer loyalty, and group procurement synergy (wheat flour, CPO, packaging materials).</p>
-                        <p style="margin-bottom:8px;"><b>2. Pinehill International Growth Engine.</b> International exposure through Pinehill (Middle East & Africa) has expanded from <b>${pct(MEA[0])}</b> in FY${FY[0]} to <b>${pct(MEA[K])}</b> of total revenue, generating hard-currency cash flow and tapping underpenetrated noodle markets.</p>
-                        <p style="margin-bottom:8px;"><b>3. High Returns & Economic Spread.</b> Operating margin expanded to <b>${pct(F.em[K])}</b>. ROIC of <b>${pct(F.roic[K])}</b> delivers a positive economic value spread of <b>${sp >= 0 ? '+' : ''}${sp.toFixed(1)} pp</b> over institutional WACC (${pct(r.a.wacc, 2)}).</p>
-                        <p style="margin-bottom:8px;"><b>4. Conservative Balance Sheet & Deleveraging.</b> Net debt/EBITDA stands at a prudent <b>${F.ndE[K].toFixed(2)}x</b> with robust interest coverage of <b>${F.icov[K].toFixed(1)}x</b>, comfortably supporting regular dividends (~${pct(PAYOUT, 0)} payout ratio).</p>
+                    <h2>Investment Thesis &amp; Equity Research Report</h2>
+                    <div class="box">
+                        <p style="font-size:0.95rem;margin-bottom:10px;"><b>Recommendation: <span class="up">${X.rt}</span> | Target Price IDR ${fmt(X.tp)} (${spct(X.up)}) | DCF Scenario: ${scen}</b></p>
+                        <p style="margin-bottom:8px;"><b>1. Moat &amp; Distribution Scale.</b> ICBP is Indonesia's dominant packaged food franchise (Indomie, Pop Mie) holding a defensible domestic market share backed by extensive cold-chain distribution, consumer loyalty, and group procurement synergy (wheat flour, CPO, packaging materials).</p>
+                        <p style="margin-bottom:8px;"><b>2. Pinehill International Growth Engine.</b> International exposure through Pinehill (Middle East &amp; Africa) has expanded from <b>${pct(MEA[0])}</b> in FY${FY[0]} to <b>${pct(MEA[K])}</b> of total revenue, generating hard-currency cash flow and tapping underpenetrated noodle markets.</p>
+                        <p style="margin-bottom:8px;"><b>3. High Returns &amp; Economic Spread.</b> Operating margin expanded to <b>${pct(F.em[K])}</b>. ROIC of <b>${pct(F.roic[K])}</b> delivers a positive economic value spread of <b>${sp >= 0 ? '+' : ''}${sp.toFixed(1)} pp</b> over institutional WACC (${pct(r.a.wacc, 2)}).</p>
+                        <p style="margin-bottom:8px;"><b>4. Conservative Balance Sheet &amp; Deleveraging.</b> Net debt/EBITDA stands at a prudent <b>${F.ndE[K].toFixed(2)}x</b> with robust interest coverage of <b>${F.icov[K].toFixed(1)}x</b>, comfortably supporting regular dividends (~${pct(PAYOUT, 0)} payout ratio).</p>
                         <p><b>5. Valuation Discount.</b> ICBP trades at <b>${c.pef.toFixed(1)}x</b> forward P/E and <b>${c.ev.toFixed(1)}x</b> EV/EBITDA versus peer medians of ${median(pr.map(p => p.pef)).toFixed(1)}x and ${median(pr.map(p => p.ev)).toFixed(1)}x. Active DCF indicates IDR ${fmt(r.price)}/share.</p>
                     </div>
                 </div>
                 <div>
                     <h2>Valuation Snapshot</h2>
-                    <div class="box" style="display:grid;gap:8px">
+                    <div class="box" style="display:grid;gap:12px">
                         ${met('DCF Value / Share', 'IDR ' + fmt(r.price), spct(r.price / LAST - 1) + ' vs last', dcls(r.price / LAST - 1))}
                         ${met('Enterprise Value', idr(r.ev))}
                         ${met('P/E TTM | Fwd', c.pe.toFixed(1) + 'x | ' + c.pef.toFixed(1) + 'x')}
@@ -905,7 +943,7 @@
             </div>
 
             <h2>Revenue Segments Breakdown</h2>
-            <div class="note" style="margin-bottom:10px;">Select Fiscal Year: <select id="yrSel" onchange="X.yr=+this.value;renderT0()">${yrOpts}</select></div>
+            <div class="note" style="margin-bottom:12px;">Select Fiscal Year: <select id="yrSel" onchange="X.yr=+this.value;renderT0()">${yrOpts}</select></div>
             <div class="g2">
                 <div class="box"><div id="c_sd" style="height:340px"></div></div>
                 <div class="box"><div id="c_ss" style="height:340px"></div></div>
@@ -948,17 +986,17 @@
                 ${met('ROIC', pct(g('roic')), ((g('roic') - p('roic')) * 100 >= 0 ? '+' : '') + ((g('roic') - p('roic')) * 100).toFixed(1) + ' pp', dcls(g('roic') - p('roic')))}
             </div>
 
-            <h2>Profitability & Growth Dynamics</h2>
+            <h2>Profitability &amp; Growth Dynamics</h2>
             <div class="g2">
                 <div class="box"><div id="f1" style="height:360px"></div></div>
                 <div class="box"><div id="f2" style="height:360px"></div></div>
             </div>
 
-            <h2>Returns, Leverage & Working Capital</h2>
+            <h2>Returns, Leverage &amp; Working Capital</h2>
             <div class="g2">
                 <div class="box"><div id="f3" style="height:340px"></div></div>
                 <div class="box">
-                    <b style="font-size:0.9rem;display:block;margin-bottom:8px;">DuPont Decomposition of ROE (3-Stage)</b>
+                    <b style="font-size:0.9rem;display:block;margin-bottom:10px;">DuPont Decomposition of ROE (3-Stage)</b>
                     <table>
                         <thead><tr><th>Component</th>${F.label.map(l => `<th>${l}</th>`).join('')}</tr></thead>
                         <tbody>
@@ -968,7 +1006,7 @@
                             <tr class="hl"><td>= Return on Equity (ROE)</td>${F.roe.map(v => `<td>${pct(v)}</td>`).join('')}</tr>
                         </tbody>
                     </table>
-                    <p class="note" style="margin-top:8px;">DuPont Identity: Net Margin × Asset Turnover × Financial Leverage Multiplier (Year-End Equity).</p>
+                    <p class="note" style="margin-top:10px;">DuPont Identity: Net Margin × Asset Turnover × Financial Leverage Multiplier (Year-End Equity).</p>
                 </div>
                 <div class="box"><div id="f4" style="height:320px"></div></div>
                 <div class="box"><div id="f5" style="height:320px"></div></div>
@@ -976,8 +1014,8 @@
                 <div class="box"><div id="f7" style="height:320px"></div></div>
             </div>
 
-            <h2>Interactive Financial Statements & Trendline Sparklines</h2>
-            <div class="seg" style="max-width:440px">${Object.keys(ST).map(k => `<button class="${k === stmt ? 'on' : ''}" onclick="stmt='${k}';renderT1()">${k}</button>`).join('')}</div>
+            <h2>Interactive Financial Statements &amp; Trendline Sparklines</h2>
+            <div class="seg" style="max-width:440px;margin-bottom:12px;">${Object.keys(ST).map(k => `<button class="${k === stmt ? 'on' : ''}" onclick="stmt='${k}';renderT1()">${k}</button>`).join('')}</div>
             <div class="box">
                 <table>
                     <thead><tr><th>Financial Line (IDR bn)</th>${F.label.map(l => `<th>${l}</th>`).join('')}<th>5-Year Trend</th></tr></thead>
@@ -1009,13 +1047,13 @@
         let slidersBuilt = false;
         function buildSliders() {
             $('t2').innerHTML = `<h2>Scenario Valuation Assumptions</h2>
-            <div class="note" id="dcfHead" style="margin-bottom:8px;"></div>
-            <div style="margin:6px 0"><button class="btn" onclick="resetS()">
+            <div class="note" id="dcfHead" style="margin-bottom:10px;"></div>
+            <div style="margin:8px 0"><button class="btn" onclick="resetS()">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                 Reset Default Assumptions
             </button></div>
             <div class="g3">
-                ${SC.map(s => `<div class="box"><b id="sh_${s}" style="font-size:0.92rem;display:block;margin-bottom:8px;"></b>
+                ${SC.map(s => `<div class="box"><b id="sh_${s}" style="font-size:0.92rem;display:block;margin-bottom:10px;"></b>
                     ${SLID.map(([k, l, lo, hi]) => `<div class="sl"><label>${l}<span id="v_${s}_${k}">${S[s][k].toFixed(2)}</span></label>
                     <input type="range" min="${lo}" max="${hi}" step="0.25" value="${S[s][k]}" id="r_${s}_${k}" oninput="S['${s}']['${k}']=+this.value;$('v_${s}_${k}').textContent=(+this.value).toFixed(2);update()"></div>`).join('')}
                 </div>`).join('')}
@@ -1041,8 +1079,8 @@
         function renderT2() {
             if (!slidersBuilt) buildSliders();
             SC.forEach(s => $('sh_' + s).innerHTML = `${s} Case ${s === scen ? '<span class="badge BUY" style="font-size:0.7rem;padding:2px 8px;margin-left:6px;">ACTIVE</span>' : ''}`);
-            $('dcfHead').innerHTML = `Base Year FY${B.yr}A Financials: Revenue ${idr(B.rev)}, Operating Margin ${pct(B.m)}, D&A ${pct(B.daP)} of Sales, NWC ${pct(B.nwcP)} of Sales, Net Debt ${idr(B.nd)}. Active Model: <b>${scen}</b>.`;
-            const r = D[scen], rows = [['Revenue (IDR bn)', r.rv], ['Revenue Growth %', r.growth.map(v => v * 100), 1], ['Operating (EBIT) Margin %', r.mg.map(v => v * 100), 1], ['EBIT', r.eb], ['NOPAT (Net Operating Profit After Tax)', r.np], ['D&A (Depreciation & Amortization)', r.d], ['CapEx (Capital Expenditure)', r.cx], ['Change in Net Working Capital (ΔNWC)', r.dn], ['Unlevered Free Cash Flow (UFCF)', r.u], ['Present Value of UFCF', r.pv]];
+            $('dcfHead').innerHTML = `Base Year FY${B.yr}A Financials: Revenue ${idr(B.rev)}, Operating Margin ${pct(B.m)}, D&amp;A ${pct(B.daP)} of Sales, NWC ${pct(B.nwcP)} of Sales, Net Debt ${idr(B.nd)}. Active Model: <b>${scen}</b>.`;
+            const r = D[scen], rows = [['Revenue (IDR bn)', r.rv], ['Revenue Growth %', r.growth.map(v => v * 100), 1], ['Operating (EBIT) Margin %', r.mg.map(v => v * 100), 1], ['EBIT', r.eb], ['NOPAT (Net Operating Profit After Tax)', r.np], ['D&amp;A (Depreciation &amp; Amortization)', r.d], ['CapEx (Capital Expenditure)', r.cx], ['Change in Net Working Capital (ΔNWC)', r.dn], ['Unlevered Free Cash Flow (UFCF)', r.u], ['Present Value of UFCF', r.pv]];
             const ff = football(), sg = sensGrid(r.a), up = r.price / LAST - 1;
 
             $('dcfOut').innerHTML = `<h2>5-Year Forecast Trajectory - ${scen} Case</h2>
@@ -1052,10 +1090,10 @@
                     <tbody>${rows.map(([n, a, dd]) => `<tr><td>${n}</td>${a.map(v => `<td>${fmt(v, dd || 0)}</td>`).join('')}</tr>`).join('')}</tbody>
                 </table>
             </div>
-            <p class="note" style="margin-top:6px;">Discounting convention: Year-end discounting; EBIT margin transitions linearly to target; ΔNWC = NWC% × incremental sales revenue.</p>
-            <div class="box" style="margin-top:12px;"><div id="d1" style="height:350px"></div></div>
+            <p class="note" style="margin-top:8px;">Discounting convention: Year-end discounting; EBIT margin transitions linearly to target; ΔNWC = NWC% × incremental sales revenue.</p>
+            <div class="box" style="margin-top:14px;"><div id="d1" style="height:350px"></div></div>
 
-            <h2>DCF Valuation Output & Valuation Bridge</h2>
+            <h2>DCF Valuation Output &amp; Valuation Bridge</h2>
             <div class="g5">
                 ${met('Enterprise Value', idr(r.ev))}
                 ${met('Implied Equity Value', idr(r.eq))}
@@ -1064,10 +1102,10 @@
                 ${met('DCF Upside / Downside', spct(up), '', dcls(up))}
             </div>
 
-            <div class="g21" style="grid-template-columns:1fr 2fr;margin-top:12px">
+            <div class="g21" style="grid-template-columns:1fr 2fr;margin-top:14px">
                 <div>
                     <div class="box">
-                        <b style="font-size:0.88rem;display:block;margin-bottom:8px;">Enterprise-to-Equity Valuation Bridge</b>
+                        <b style="font-size:0.88rem;display:block;margin-bottom:10px;">Enterprise-to-Equity Valuation Bridge</b>
                         <table>
                             <tbody>
                                 <tr><td>PV of UFCF (5-Year Forecast)</td><td>${fmt(r.pvf)}</td></tr>
@@ -1078,9 +1116,9 @@
                                 <tr class="hl"><td>Implied Equity Value</td><td>${fmt(r.eq)}</td></tr>
                             </tbody>
                         </table>
-                        <p class="note" style="margin-top:8px;">Terminal Value accounts for ${pct(r.tvShare, 0)} of EV; implied terminal EV/EBITDA of ${r.tvE.toFixed(1)}x.</p>
+                        <p class="note" style="margin-top:10px;">Terminal Value accounts for ${pct(r.tvShare, 0)} of EV; implied terminal EV/EBITDA of ${r.tvE.toFixed(1)}x.</p>
                     </div>
-                    <div style="display:grid;gap:8px;margin-top:10px;">
+                    <div style="display:grid;gap:10px;margin-top:12px;">
                         ${SC.map(s => met(s + ' Valuation / Share', 'IDR ' + fmt(D[s].price), spct(D[s].price / LAST - 1), dcls(D[s].price / LAST - 1))).join('')}
                     </div>
                 </div>
@@ -1105,7 +1143,7 @@
 
             P('d3', [{
                 type: 'heatmap', z: sg.z, x: sg.ws.map(v => pct(v, 2)), y: sg.gs.map(v => pct(v, 2)), zmid: LAST,
-                colorscale: [[0, '#FEE2E2'], [.5, '#F1F5F9'], [1, '#CCFBF1']],
+                colorscale: [[0, '#FECACA'], [.5, '#E2E8F0'], [1, '#A7F3D0']],
                 text: sg.z.map(rw => rw.map(v => v == null ? 'n/a' : fmt(v))), texttemplate: '%{text}', hoverongaps: false
             }], {
                 title: T(`WACC vs Terminal Growth Rate (${scen} Case; Centered at Market Price)`), hovermode: 'closest',
@@ -1123,7 +1161,7 @@
                 { x: [ic[xk]], y: [ic[yk]], text: ['ICBP'], mode: 'markers+text', textposition: 'top center', name: 'ICBP (Focal)', marker: { size: 20, color: C.teal, symbol: 'diamond', line: { width: 2, color: '#0F766E' } } },
                 { x: xs, y: xs.map(x => fit.slope * x + fit.icpt), mode: 'lines', name: 'OLS Regression Trendline', line: { color: C.amber, dash: 'dash', width: 2 } }
             ], { title: T(title), hovermode: 'closest', xaxis: { title: xt }, yaxis: { title: yt } });
-            return `<div class="met" style="margin-top:8px"><div class="l">ICBP ${yt} vs Peer Regression Implied</div><div class="v">${prem == null ? 'n/a' : spct(prem, 1)}</div><div class="d">Goodness of Fit R² = ${fit.r2.toFixed(3)} (n = ${pr.length} Peer Companies)</div></div>`;
+            return `<div class="met" style="margin-top:10px"><div class="l">ICBP ${yt} vs Peer Regression Implied</div><div class="v">${prem == null ? 'n/a' : spct(prem, 1)}</div><div class="d">Goodness of Fit R² = ${fit.r2.toFixed(3)} (n = ${pr.length} Peer Companies)</div></div>`;
         }
 
         function renderT3() {
@@ -1143,8 +1181,8 @@
                 return met(l, ic[k].toFixed(1) + (k === 'roe' ? '%' : 'x'), `${spct(d, 0)} vs Median ${m.toFixed(1)}`, k === 'roe' ? dcls(d) : (d <= 0 ? 'up' : 'dn'));
             }).join('')}</div>
 
-            <h2>Relative Valuation Scatter Maps & Regression</h2>
-            <div style="margin-bottom:10px;">
+            <h2>Relative Valuation Scatter Maps &amp; Regression</h2>
+            <div style="margin-bottom:12px;">
                 <label style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);cursor:pointer;">
                     <input type="checkbox" ${hideU ? 'checked' : ''} onchange="hideU=this.checked;renderT3()"> Exclude UNVR as Structural Outlier (ROE ~82%, P/BV ~14.5x)
                 </label>
@@ -1163,25 +1201,25 @@
         let lb = 252, mxBuilt = false; const MS = { fx: 0, wheat: 0, cpo: 0, bi: 0, infl: 0, pt: 35 };
         function renderT4() {
             if (!mxBuilt) {
-                $('t4').innerHTML = `<h2>Stock Price Technicals & Momentum Engine</h2>
+                $('t4').innerHTML = `<h2>Stock Price Technicals &amp; Momentum Engine</h2>
                 <div class="seg" style="max-width:380px">${[['3M', 63], ['6M', 126], ['1Y', 252], ['2Y', 504], ['Max', 1000]].map(([l, n]) => `<button class="${n === lb ? 'on' : ''}" onclick="lb=${n};drawTech();this.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));this.classList.add('on')">${l}</button>`).join('')}</div>
-                <div id="techM" class="g5" style="margin-bottom:12px;"></div>
+                <div id="techM" class="g5" style="margin-bottom:14px;"></div>
                 <div class="box"><div id="tc" style="height:800px"></div></div>
 
-                <h2>Macroeconomic & Commodity Input Sensitivity Analyzer</h2>
-                <div class="note" style="margin-bottom:8px;">Base Year FY${B.yr}: COGS Allocation - Wheat ${pct(MIX.wheat, 0)}, CPO ${pct(MIX.cpo, 0)}, Other Packaging/Raw Inputs ${pct(MIX.oraw, 0)}, Overhead ${pct(MIX.oh, 0)}.</div>
+                <h2>Macroeconomic &amp; Commodity Input Sensitivity Analyzer</h2>
+                <div class="note" style="margin-bottom:10px;">Base Year FY${B.yr}: COGS Allocation - Wheat ${pct(MIX.wheat, 0)}, CPO ${pct(MIX.cpo, 0)}, Other Packaging/Raw Inputs ${pct(MIX.oraw, 0)}, Overhead ${pct(MIX.oh, 0)}.</div>
                 <div class="g21" style="grid-template-columns:1fr 2fr">
                     <div class="box">
-                        <b style="font-size:0.9rem;display:block;margin-bottom:10px;">Macro Shock Variables</b>
+                        <b style="font-size:0.9rem;display:block;margin-bottom:12px;">Macro Shock Variables</b>
                         ${[['fx', 'USD/IDR Exchange Rate (%)', -20, 30, 1], ['wheat', 'Global Wheat Commodity Price (%)', -30, 50, 1], ['cpo', 'Crude Palm Oil (CPO) Price (%)', -30, 50, 1], ['bi', 'Bank Indonesia Rate Shock (bps)', -200, 200, 25], ['infl', 'Domestic CPI Inflation Shock (pp)', -2, 4, .25], ['pt', 'Consumer Price Pass-Through (%)', 0, 100, 5]]
                         .map(([k, l, lo, hi, st]) => `<div class="sl"><label>${l}<span id="mv_${k}">${MS[k]}</span></label><input type="range" min="${lo}" max="${hi}" step="${st}" value="${MS[k]}" oninput="MS['${k}']=+this.value;$('mv_${k}').textContent=this.value;drawMacro()"></div>`).join('')}
                     </div>
                     <div>
-                        <div id="mxM" class="g4" style="margin-bottom:12px;"></div>
+                        <div id="mxM" class="g4" style="margin-bottom:14px;"></div>
                         <div class="box"><div id="mw" style="height:340px"></div></div>
                     </div>
                 </div>
-                <div class="box" style="margin-top:12px;"><div id="mt" style="height:340px"></div></div>`;
+                <div class="box" style="margin-top:14px;"><div id="mt" style="height:340px"></div></div>`;
                 mxBuilt = true;
             }
             drawTech();
@@ -1209,9 +1247,9 @@
                 title: T('ICBP.JK - Technical Price Action, Moving Averages, Volume, RSI & Rolling Volatility'),
                 xaxis: { rangeslider: { visible: false }, rangebreaks: [{ bounds: ['sat', 'mon'] }], anchor: 'y4' },
                 yaxis: { domain: [.5, 1], title: 'Price (IDR)' },
-                yaxis2: { domain: [.36, .48], gridcolor: '#F1F5F9', title: 'Volume' },
-                yaxis3: { domain: [.18, .34], range: [0, 100], gridcolor: '#F1F5F9', title: 'RSI' },
-                yaxis4: { domain: [0, .16], gridcolor: '#F1F5F9', title: 'Vol (%)' },
+                yaxis2: { domain: [.36, .48], gridcolor: 'rgba(163,177,198,0.3)', title: 'Volume' },
+                yaxis3: { domain: [.18, .34], range: [0, 100], gridcolor: 'rgba(163,177,198,0.3)', title: 'RSI' },
+                yaxis4: { domain: [0, .16], gridcolor: 'rgba(163,177,198,0.3)', title: 'Vol (%)' },
                 shapes: [
                     { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y3', y0: 70, y1: 70, line: { color: C.red, dash: 'dot', width: 1.5 } },
                     { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y3', y0: 30, y1: 30, line: { color: C.teal, dash: 'dot', width: 1.5 } }
@@ -1266,7 +1304,7 @@ ${rows}
 `;
         }
 
-        const README = `# ICBP Equity Research & Valuation Terminal (Institutional Light Mode)
+        const README = `# ICBP Equity Research & Valuation Terminal (Neumorphic Soft UI)
 
 An institutional-grade, single-file interactive research dashboard for PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP.JK).
 
@@ -1302,8 +1340,8 @@ An institutional-grade, single-file interactive research dashboard for PT Indofo
             add('Comparable Peers Universe Dataset Completeness', PEERS.length === 5, `${PEERS.length} peer records present`);
 
             const pass = checks.filter(c => c[1]).length, note = research();
-            $('t5').innerHTML = `<h2>Calculation Audit & Data Provenance Verification Suite</h2>
-            <div class="box" style="border-left:4px solid ${pass === checks.length ? C.teal : C.red};margin-bottom:12px;">
+            $('t5').innerHTML = `<h2>Calculation Audit &amp; Data Provenance Verification Suite</h2>
+            <div class="box" style="border-left:4px solid ${pass === checks.length ? C.teal : C.red};margin-bottom:14px;">
                 <b style="font-size:0.95rem;color:${pass === checks.length ? '#0F766E' : '#B91C1C'}">
                     ${pass === checks.length ? '✓ ALL AUDIT CHECKS PASSED (' + pass + '/' + checks.length + ')' : 'AUDIT WARNING: ' + pass + '/' + checks.length + ' Passed'}
                 </b>
@@ -1315,12 +1353,12 @@ An institutional-grade, single-file interactive research dashboard for PT Indofo
                 </table>
             </div>
 
-            <h2>Institutional Research Note & Portfolio Documentation</h2>
+            <h2>Institutional Research Note &amp; Portfolio Documentation</h2>
             <div class="g2">
-                <div class="box"><b style="display:block;margin-bottom:8px;">Equity Research Note (Markdown)</b><pre id="noteTxt"></pre></div>
-                <div class="box"><b style="display:block;margin-bottom:8px;">Project README Template</b><pre id="readmeTxt"></pre></div>
+                <div class="box"><b style="display:block;margin-bottom:10px;">Equity Research Note (Markdown)</b><pre id="noteTxt"></pre></div>
+                <div class="box"><b style="display:block;margin-bottom:10px;">Project README Template</b><pre id="readmeTxt"></pre></div>
             </div>
-            <div style="margin-top:12px;display:flex;gap:8px;">
+            <div style="margin-top:14px;display:flex;gap:10px;">
                 <button class="btn" onclick="download('ICBP_research_note.md',research(),'text/markdown')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2 2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download Research Note (.md)
@@ -1336,12 +1374,12 @@ An institutional-grade, single-file interactive research dashboard for PT Indofo
 
         /* ========================= ROUTER ========================= */
         const TAB_ICONS = [
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>',
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>'
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>',
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>',
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>'
         ];
         const TAB_LABELS = ['Executive Summary', '5Y Fundamentals', 'DCF Valuation', 'Peer Valuation', 'Technicals & Macro', 'Audit & Docs'];
         const RENDER = [renderT0, renderT1, renderT2, renderT3, renderT4, renderT5];

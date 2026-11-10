@@ -40,20 +40,30 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-    /* Global Light Mode Surface & Typography */
+    :root {
+        --nm-bg: #E2E8F0;
+        --nm-raised: 6px 6px 14px rgba(163, 177, 198, 0.6), -6px -6px 14px rgba(255, 255, 255, 0.9);
+        --nm-raised-sm: 4px 4px 9px rgba(163, 177, 198, 0.55), -4px -4px 9px rgba(255, 255, 255, 0.85);
+        --nm-raised-lg: 8px 8px 20px rgba(163, 177, 198, 0.65), -8px -8px 20px rgba(255, 255, 255, 0.95);
+        --nm-inset: inset 3px 3px 7px rgba(163, 177, 198, 0.65), inset -3px -3px 7px rgba(255, 255, 255, 0.95);
+        --nm-inset-sm: inset 2px 2px 5px rgba(163, 177, 198, 0.6), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+    }
+
+    /* Global Neumorphic Canvas & Typography */
     html, body, [data-testid="stAppViewContainer"], .stApp {
-        background-color: #F8FAFC !important;
+        background-color: #E2E8F0 !important;
         color: #0F172A !important;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
         font-size: 13.5px;
         -webkit-font-smoothing: antialiased;
     }
     [data-testid="stHeader"] {
-        background-color: rgba(248, 250, 252, 0.85) !important;
+        background-color: rgba(226, 232, 240, 0.85) !important;
     }
     [data-testid="stSidebar"] {
-        background-color: #FFFFFF !important;
-        border-right: 1px solid #E2E8F0 !important;
+        background-color: #E2E8F0 !important;
+        border-right: none !important;
+        box-shadow: 4px 0 16px rgba(163, 177, 198, 0.45) !important;
     }
     [data-testid="stSidebar"] * {
         color: #0F172A;
@@ -70,56 +80,55 @@ st.markdown(
         font-weight: 700;
     }
     h1 { font-size: 1.48rem !important; }
-    h2 { font-size: 1.12rem !important; margin-top: 20px !important; margin-bottom: 8px !important; }
+    h2 { font-size: 1.12rem !important; margin-top: 20px !important; margin-bottom: 10px !important; }
     h3 { font-size: 0.96rem !important; }
 
-    /* Streamlit Native Metric Override (Light Mode) */
+    /* Streamlit Native Metric Override (Neumorphic) */
     [data-testid="stMetric"] {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 12px 14px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-        transition: transform 160ms ease, box-shadow 160ms ease;
+        background: #E2E8F0 !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        border-radius: 14px !important;
+        padding: 14px 16px !important;
+        box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.6), -6px -6px 14px rgba(255, 255, 255, 0.9) !important;
+        transition: transform 180ms ease, box-shadow 180ms ease !important;
     }
     [data-testid="stMetric"]:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
+        transform: translateY(-2px) !important;
+        box-shadow: 8px 8px 20px rgba(163, 177, 198, 0.65), -8px -8px 20px rgba(255, 255, 255, 0.95) !important;
     }
     [data-testid="stMetricLabel"] {
         color: #64748B !important;
         font-size: 0.70rem !important;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
     }
     [data-testid="stMetricValue"] {
         color: #0F172A !important;
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 1.3rem !important;
+        font-size: 1.30rem !important;
         font-weight: 700 !important;
         font-variant-numeric: tabular-nums;
     }
 
-    /* Custom HTML Metric Cards (.met) */
+    /* Custom Neumorphic Metric Cards (.met) */
     .met {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 12px 14px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+        background: #E2E8F0;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 14px;
+        padding: 14px 16px;
+        box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.6), -6px -6px 14px rgba(255, 255, 255, 0.9);
         height: 100%;
-        transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+        transition: transform 180ms ease, box-shadow 180ms ease;
     }
     .met:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
-        border-color: #CBD5E1;
+        transform: translateY(-2px);
+        box-shadow: 8px 8px 20px rgba(163, 177, 198, 0.65), -8px -8px 20px rgba(255, 255, 255, 0.95);
     }
     .met .l {
         color: #64748B;
         font-size: 0.68rem;
-        font-weight: 600;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
     }
@@ -128,7 +137,7 @@ st.markdown(
         font-family: 'JetBrains Mono', monospace;
         font-size: 1.28rem;
         font-weight: 700;
-        margin-top: 2px;
+        margin-top: 3px;
         letter-spacing: -0.02em;
         font-variant-numeric: tabular-nums;
     }
@@ -137,24 +146,27 @@ st.markdown(
         font-size: 0.76rem;
         color: #64748B;
         font-weight: 600;
-        margin-top: 2px;
+        margin-top: 3px;
         display: flex;
         align-items: center;
         gap: 3px;
     }
-    .up { color: #0D9488 !important; font-weight: 600 !important; }
-    .dn { color: #DC2626 !important; font-weight: 600 !important; }
+    .up { color: #0D9488 !important; font-weight: 700 !important; }
+    .dn { color: #DC2626 !important; font-weight: 700 !important; }
 
-    /* Top Institutional Header Ribbon */
+    /* Top Neumorphic Header Ribbon */
     .term-ribbon {
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 12px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #E2E8F0;
-        margin-bottom: 14px;
+        padding: 14px 18px;
+        background: #E2E8F0;
+        border-radius: 14px;
+        box-shadow: 4px 4px 10px rgba(163, 177, 198, 0.55), -4px -4px 10px rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        margin-bottom: 16px;
     }
     .term-meta {
         font-size: 0.75rem;
@@ -169,29 +181,30 @@ st.markdown(
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        background: #F1F5F9;
-        border: 1px solid #E2E8F0;
+        background: #E2E8F0;
         border-radius: 20px;
-        padding: 4px 10px;
-        font-size: 0.70rem;
-        font-weight: 600;
+        padding: 6px 14px;
+        font-size: 0.72rem;
+        font-weight: 700;
         color: #334155;
         font-family: 'JetBrains Mono', monospace;
+        box-shadow: inset 2px 2px 5px rgba(163, 177, 198, 0.6), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
     }
     .pulse-dot {
-        width: 6px;
-        height: 6px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: #10B981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
     }
 
     /* Responsive CSS Grids */
-    .g2  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-    .g3  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
-    .g4  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
-    .g5  { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
-    .g6  { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 12px; }
-    .g21 { display: grid; grid-template-columns: 2.3fr 1fr; gap: 16px; margin-bottom: 14px; }
+    .g2  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .g3  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+    .g4  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+    .g5  { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
+    .g6  { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 14px; }
+    .g21 { display: grid; grid-template-columns: 2.3fr 1fr; gap: 18px; margin-bottom: 16px; }
     @media (max-width: 1024px) {
         .g2, .g3, .g4, .g5, .g6, .g21 { grid-template-columns: 1fr 1fr; }
     }
@@ -199,34 +212,38 @@ st.markdown(
         .g2, .g3, .g4, .g5, .g6, .g21 { grid-template-columns: 1fr; }
     }
 
-    /* Styled Navigation Tabs */
+    /* Neumorphic Navigation Tabs */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-        border-bottom: 1px solid #E2E8F0;
-        background-color: transparent;
-        padding: 0 0 4px 0;
-        margin-bottom: 14px;
+        gap: 8px;
+        background-color: #E2E8F0;
+        padding: 6px;
+        border-radius: 14px;
+        box-shadow: inset 2px 2px 5px rgba(163, 177, 198, 0.6), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+        border: none;
+        margin-bottom: 16px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #F8FAFC;
-        border: 1px solid #E2E8F0;
-        border-radius: 6px;
+        background-color: #E2E8F0;
+        border: none;
+        border-radius: 10px;
         color: #64748B;
-        padding: 8px 14px;
+        padding: 8px 16px;
         font-size: 0.84rem;
         font-weight: 600;
         height: auto;
-        transition: all 150ms ease;
+        box-shadow: 4px 4px 9px rgba(163, 177, 198, 0.55), -4px -4px 9px rgba(255, 255, 255, 0.85);
+        transition: all 160ms ease;
     }
     .stTabs [data-baseweb="tab"]:hover {
-        background-color: #F1F5F9;
         color: #0F172A;
+        transform: translateY(-1px);
     }
     .stTabs [aria-selected="true"] {
-        background-color: #0D9488 !important;
-        color: #FFFFFF !important;
-        border-color: #0D9488 !important;
-        box-shadow: 0 1px 3px rgba(13, 148, 136, 0.3) !important;
+        background-color: #E2E8F0 !important;
+        color: #0D9488 !important;
+        font-weight: 700 !important;
+        box-shadow: inset 3px 3px 6px rgba(163, 177, 198, 0.65), inset -3px -3px 6px rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.6) !important;
     }
 
     /* Rating Badges */
@@ -234,45 +251,46 @@ st.markdown(
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 4px 14px;
-        border-radius: 6px;
+        padding: 5px 14px;
+        border-radius: 8px;
         font-family: 'JetBrains Mono', monospace;
         font-weight: 700;
         letter-spacing: 0.06em;
         font-size: 0.95rem;
+        box-shadow: 3px 3px 7px rgba(163, 177, 198, 0.55), -3px -3px 7px rgba(255, 255, 255, 0.85);
     }
     .BUY {
-        background: #CCFBF1;
+        background: #E2E8F0;
         color: #0F766E;
-        border: 1px solid #A7F3D0;
+        border: 1px solid rgba(13, 148, 136, 0.35);
     }
     .HOLD {
-        background: #FEF3C7;
+        background: #E2E8F0;
         color: #B45309;
-        border: 1px solid #FDE68A;
+        border: 1px solid rgba(217, 119, 6, 0.35);
     }
     .SELL {
-        background: #FEE2E2;
+        background: #E2E8F0;
         color: #B91C1C;
-        border: 1px solid #FECACA;
+        border: 1px solid rgba(220, 38, 38, 0.35);
     }
 
-    /* Risk Cards */
+    /* Neumorphic Risk Cards */
     .risk {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 14px 16px;
+        background: #E2E8F0;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 14px;
+        padding: 16px;
         min-height: 190px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+        box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.6), -6px -6px 14px rgba(255, 255, 255, 0.9);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        transition: all 160ms ease;
+        transition: all 180ms ease;
     }
     .risk:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
+        transform: translateY(-2px);
+        box-shadow: 8px 8px 20px rgba(163, 177, 198, 0.65), -8px -8px 20px rgba(255, 255, 255, 0.95);
     }
     .risk .h {
         display: flex;
@@ -286,10 +304,11 @@ st.markdown(
     .risk .t {
         font-size: 0.68rem;
         font-family: 'JetBrains Mono', monospace;
-        padding: 2px 7px;
-        border-radius: 4px;
+        padding: 3px 8px;
+        border-radius: 6px;
         font-weight: 700;
         letter-spacing: 0.04em;
+        box-shadow: 3px 3px 7px rgba(163, 177, 198, 0.55), -3px -3px 7px rgba(255, 255, 255, 0.85);
     }
     .risk p {
         font-size: 0.82rem;
@@ -300,21 +319,21 @@ st.markdown(
     .risk .i {
         color: #B45309;
         font-weight: 600;
-        background: #FFFBEB;
-        padding: 4px 8px;
-        border-radius: 4px;
-        border-left: 2px solid #D97706;
+        background: rgba(217, 119, 6, 0.08);
+        padding: 5px 9px;
+        border-radius: 6px;
+        border-left: 3px solid #D97706;
     }
 
-    /* Container Boxes & Institutional Tables */
+    /* Container Boxes & Neumorphic Tables */
     .box {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 12px 14px;
+        background: #E2E8F0;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 14px;
+        padding: 16px 18px;
         overflow: auto;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
-        margin-bottom: 10px;
+        box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.6), -6px -6px 14px rgba(255, 255, 255, 0.9);
+        margin-bottom: 12px;
     }
     .note {
         color: #64748B;
@@ -324,14 +343,15 @@ st.markdown(
         margin-bottom: 8px;
     }
     table.term-tbl {
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         width: 100%;
         font-size: 0.82rem;
-        background: #FFFFFF;
+        background: #E2E8F0;
     }
     table.term-tbl th, table.term-tbl td {
-        padding: 6px 10px;
-        border-bottom: 1px solid #E2E8F0;
+        padding: 7px 12px;
+        border-bottom: 1px solid rgba(163, 177, 198, 0.35);
         text-align: right;
         white-space: nowrap;
         color: #1E293B;
@@ -344,24 +364,45 @@ st.markdown(
         font-weight: 500;
     }
     table.term-tbl th {
-        color: #475569;
+        color: #334155;
         font-weight: 700;
         font-size: 0.70rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        background: #F1F5F9;
+        background: rgba(163, 177, 198, 0.25);
         font-family: 'Inter', sans-serif;
+        border-bottom: 1px solid rgba(163, 177, 198, 0.5);
     }
     table.term-tbl tr.hl td {
-        background: #F0FDF4;
+        background: rgba(13, 148, 136, 0.12);
         font-weight: 700;
-        color: #047857;
-        border-top: 1px solid #BBF7D0;
-        border-bottom: 1px solid #BBF7D0;
+        color: #0F766E;
+        border-top: 1px solid rgba(13, 148, 136, 0.3);
+        border-bottom: 1px solid rgba(13, 148, 136, 0.3);
     }
     table.term-tbl tbody tr:hover td {
-        background-color: #F8FAFC;
+        background-color: rgba(255, 255, 255, 0.35);
     }
+
+    /* Neumorphic Streamlit Buttons & Sliders */
+    [data-testid="stBaseButton-secondary"] {
+        background: #E2E8F0 !important;
+        border: none !important;
+        border-radius: 10px !important;
+        color: #0F172A !important;
+        box-shadow: 4px 4px 10px rgba(163, 177, 198, 0.55), -4px -4px 10px rgba(255, 255, 255, 0.85) !important;
+        transition: all 160ms ease !important;
+    }
+    [data-testid="stBaseButton-secondary"]:hover {
+        color: #0D9488 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.65), -6px -6px 14px rgba(255, 255, 255, 0.95) !important;
+    }
+    [data-testid="stBaseButton-secondary"]:active {
+        box-shadow: inset 2px 2px 5px rgba(163, 177, 198, 0.6), inset -2px -2px 5px rgba(255, 255, 255, 0.9) !important;
+        transform: translateY(0) !important;
+    }
+
     .ok  { color: #0D9488; font-weight: 700; }
     .bad { color: #DC2626; font-weight: 700; }
     </style>
@@ -458,21 +499,21 @@ def svg_spark(arr: list) -> str:
 
 
 def apply_light_plotly(fig: go.Figure, title_text: str = "", height: int = 360, hovermode: str = "x unified") -> go.Figure:
-    """Applies a clean, high-contrast Institutional Light Mode layout to Plotly charts."""
+    """Applies a clean, high-contrast Neumorphic layout to Plotly charts."""
     fig.update_layout(
         template="plotly_white",
         title=dict(text=title_text, font=dict(size=13, color="#0F172A", family="Inter, -apple-system, sans-serif")),
-        paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#E2E8F0",
+        plot_bgcolor="#E2E8F0",
         font=dict(color="#334155", size=11.5, family="Inter, -apple-system, sans-serif"),
         height=height,
         margin=dict(l=52, r=28, t=48, b=38),
-        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="left", x=0, bgcolor="rgba(255,255,255,0)", font=dict(size=11)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="left", x=0, bgcolor="rgba(226,232,240,0.6)", font=dict(size=11)),
         hovermode=hovermode,
         hoverlabel=dict(bgcolor="#0F172A", font=dict(color="#F8FAFC", family="JetBrains Mono, monospace", size=11.5), bordercolor="#0F172A"),
     )
-    fig.update_xaxes(gridcolor="#F1F5F9", linecolor="#E2E8F0", zeroline=False)
-    fig.update_yaxes(gridcolor="#F1F5F9", linecolor="#E2E8F0", zeroline=False)
+    fig.update_xaxes(gridcolor="rgba(163, 177, 198, 0.35)", linecolor="rgba(163, 177, 198, 0.6)", zeroline=False)
+    fig.update_yaxes(gridcolor="rgba(163, 177, 198, 0.35)", linecolor="rgba(163, 177, 198, 0.6)", zeroline=False)
     return fig
 
 
@@ -1750,7 +1791,7 @@ def render_tabs():
                 x=[pct(v, 2) for v in sg["ws"]],
                 y=[pct(v, 2) for v in sg["gs"]],
                 zmid=LAST,
-                colorscale=[[0.0, "#FEE2E2"], [0.5, "#F1F5F9"], [1.0, "#99F6E4"]],
+                colorscale=[[0.0, "#FECACA"], [0.5, "#E2E8F0"], [1.0, "#A7F3D0"]],
                 text=[[("n/a" if v is None else fmt(v)) for v in row] for row in sg["z"]],
                 texttemplate="%{text}",
                 textfont=dict(color="#0F172A", size=12),
