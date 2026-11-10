@@ -1,0 +1,222 @@
+[
+  {
+    "Period": "2010",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Prospektus Penawaran Umum Perdana Saham (IPO 2010)",
+    "Filename": "ICBP_2010_IPO_Prospectus.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2010_IPO_Prospectus.pdf",
+    "File_Size_MB": 1.0,
+    "Page_Count": 2,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/document/ICBP_Prospektus%20RingkasPenawaran%20Umum_IPO.pdf"
+  },
+  {
+    "Period": "2011",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Audited Financial Statements Full Notes FY2011 & FY2010",
+    "Filename": "ICBP_2011_Financial_Statement_Full_Notes.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2011_Financial_Statement_Full_Notes.pdf",
+    "File_Size_MB": 1.48,
+    "Page_Count": 120,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/statement/Financial%20Statement_Full%20Notes_4Q11%20Billingual%20ICBP.pdf"
+  },
+  {
+    "Period": "2012",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2012",
+    "Filename": "ICBP_2012_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2012_Annual_Report.pdf",
+    "File_Size_MB": 16.46,
+    "Page_Count": 254,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ar-2012.pdf"
+  },
+  {
+    "Period": "2013",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2013",
+    "Filename": "ICBP_2013_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2013_Annual_Report.pdf",
+    "File_Size_MB": 15.78,
+    "Page_Count": 269,
+    "Source_URL": "Local Cache / IPO Filing"
+  },
+  {
+    "Period": "2014",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2014",
+    "Filename": "ICBP_2014_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2014_Annual_Report.pdf",
+    "File_Size_MB": 8.86,
+    "Page_Count": 289,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP_2014_website.pdf"
+  },
+  {
+    "Period": "2015",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2015",
+    "Filename": "ICBP_2015_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2015_Annual_Report.pdf",
+    "File_Size_MB": 7.82,
+    "Page_Count": 306,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP_AR%202015_web%20update.pdf"
+  },
+  {
+    "Period": "2016",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2016",
+    "Filename": "ICBP_2016_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2016_Annual_Report.pdf",
+    "File_Size_MB": 8.01,
+    "Page_Count": 296,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP%20AR2016_vFinal_lo.pdf"
+  },
+  {
+    "Period": "2017",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2017",
+    "Filename": "ICBP_2017_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2017_Annual_Report.pdf",
+    "File_Size_MB": 6.29,
+    "Page_Count": 306,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP_Annual%20Report_2017.pdf"
+  },
+  {
+    "Period": "2018",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2018",
+    "Filename": "ICBP_2018_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2018_Annual_Report.pdf",
+    "File_Size_MB": 8.35,
+    "Page_Count": 341,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/AR%20ICBP%202018_website%2020190430.pdf"
+  },
+  {
+    "Period": "2019",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2019",
+    "Filename": "ICBP_2019_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2019_Annual_Report.pdf",
+    "File_Size_MB": 7.69,
+    "Page_Count": 348,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP%20-%20AR%202019.pdf"
+  },
+  {
+    "Period": "2020",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2020",
+    "Filename": "ICBP_2020_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2020_Annual_Report.pdf",
+    "File_Size_MB": 9.17,
+    "Page_Count": 372,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP%20-%20AR%202020%20Preview_web%20version.pdf"
+  },
+  {
+    "Period": "2021",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2021",
+    "Filename": "ICBP_2021_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2021_Annual_Report.pdf",
+    "File_Size_MB": 20.24,
+    "Page_Count": 320,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/icbp_2021ar_web%20version.pdf"
+  },
+  {
+    "Period": "2022",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2022",
+    "Filename": "ICBP_2022_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2022_Annual_Report.pdf",
+    "File_Size_MB": 15.71,
+    "Page_Count": 344,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP_AR_2022.pdf"
+  },
+  {
+    "Period": "2023",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2023",
+    "Filename": "ICBP_2023_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2023_Annual_Report.pdf",
+    "File_Size_MB": 12.64,
+    "Page_Count": 306,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/AR%20ICBP_2023_web.pdf"
+  },
+  {
+    "Period": "2024",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2024",
+    "Filename": "ICBP_2024_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2024_Annual_Report.pdf",
+    "File_Size_MB": 23.71,
+    "Page_Count": 311,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/AR%20ICBP%2024_final.pdf"
+  },
+  {
+    "Period": "2025",
+    "Category": "Annual / Audited",
+    "Title": "ICBP Annual Report 2025",
+    "Filename": "ICBP_2025_Annual_Report.pdf",
+    "Relative_Path": "data/raw/financial_statements/annual_reports/ICBP_2025_Annual_Report.pdf",
+    "File_Size_MB": 16.37,
+    "Page_Count": 292,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/annual/ICBP_2025AR_final.pdf"
+  },
+  {
+    "Period": "9M26",
+    "Category": "Quarterly / Interim",
+    "Title": "ICBP Interim Consolidated Financial Statements 9M26 (30 Sep 2026)",
+    "Filename": "ICBP_2026_9M_Interim_Financial_Statement.pdf",
+    "Relative_Path": "data/raw/financial_statements/interim_quarterly/ICBP_2026_9M_Interim_Financial_Statement.pdf",
+    "File_Size_MB": 0.15,
+    "Page_Count": 7,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/statement/Icbp_billingual_30_Sep_26.pdf"
+  },
+  {
+    "Period": "1H26",
+    "Category": "Quarterly / Interim",
+    "Title": "ICBP Interim Consolidated Financial Statements 1H26 (30 Jun 2026)",
+    "Filename": "ICBP_2026_1H_Interim_Financial_Statement.pdf",
+    "Relative_Path": "data/raw/financial_statements/interim_quarterly/ICBP_2026_1H_Interim_Financial_Statement.pdf",
+    "File_Size_MB": 3.94,
+    "Page_Count": 108,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/statement/ICBP_billingual_30_Jun_26.pdf"
+  },
+  {
+    "Period": "1Q26",
+    "Category": "Quarterly / Interim",
+    "Title": "ICBP Interim Consolidated Financial Statements 1Q26 (31 Mar 2026)",
+    "Filename": "ICBP_2026_1Q_Interim_Financial_Statement.pdf",
+    "Relative_Path": "data/raw/financial_statements/interim_quarterly/ICBP_2026_1Q_Interim_Financial_Statement.pdf",
+    "File_Size_MB": 3.62,
+    "Page_Count": 99,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/statement/ICBP_billingual_31_Mar_26.pdf"
+  },
+  {
+    "Period": "9M25",
+    "Category": "Quarterly / Interim",
+    "Title": "ICBP Interim Consolidated Financial Statements 9M25 (30 Sep 2025)",
+    "Filename": "ICBP_2025_9M_Interim_Financial_Statement.pdf",
+    "Relative_Path": "data/raw/financial_statements/interim_quarterly/ICBP_2025_9M_Interim_Financial_Statement.pdf",
+    "File_Size_MB": 4.02,
+    "Page_Count": 101,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/statement/Icbp_billingual_30_Sep_25.pdf"
+  },
+  {
+    "Period": "1H25",
+    "Category": "Quarterly / Interim",
+    "Title": "ICBP Interim Consolidated Financial Statements 1H25 (30 Jun 2025)",
+    "Filename": "ICBP_2025_1H_Interim_Financial_Statement.pdf",
+    "Relative_Path": "data/raw/financial_statements/interim_quarterly/ICBP_2025_1H_Interim_Financial_Statement.pdf",
+    "File_Size_MB": 3.87,
+    "Page_Count": 109,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/statement/ICBP_billingual_30Jun25.pdf"
+  },
+  {
+    "Period": "1Q25",
+    "Category": "Quarterly / Interim",
+    "Title": "ICBP Interim Consolidated Financial Statements 1Q25 (31 Mar 2025)",
+    "Filename": "ICBP_2025_1Q_Interim_Financial_Statement.pdf",
+    "Relative_Path": "data/raw/financial_statements/interim_quarterly/ICBP_2025_1Q_Interim_Financial_Statement.pdf",
+    "File_Size_MB": 1.96,
+    "Page_Count": 102,
+    "Source_URL": "https://www.indofoodcbp.com/uploads/statement/Icbp_billingual_31_Mar_25.pdf"
+  }
+]
