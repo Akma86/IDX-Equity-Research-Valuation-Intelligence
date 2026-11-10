@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>ICBP Equity Research Terminal</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            background: #F8FAFC;
+            color: #0F172A;
+            font-family: Inter, "Segoe UI", system-ui, sans-serif;
+            font-size: 14px
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #0F172A;
+            letter-spacing: -.01em;
+            margin: .4em 0
+        }
+
+        h2 {
+            font-size: 1.15rem;
+            margin-top: 22px
+        }
+
+        h3 {
+            font-size: 1rem
+        }
+
+        #app {
+            display: flex;
+            min-height: 100vh
+        }
+
+        #side {
+            width: 270px;
+            background: #FFFFFF;
+            border-right: 1px solid #E2E8F0;
+            padding: 16px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow: auto;
+            flex-shrink: 0
+        }
+
+        #main {
+            flex: 1;
+            padding: 14px 22px;
+            max-width: 1550px;
+            min-width: 0
+        }
+
+        .met {
+            background: linear-gradient(145deg, #FFFFFF, #F8FAFC);
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 12px 14px;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, .05)
+        }
+
+        .met .l {
+            color: #64748B;
+            font-size: .7rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            font-weight: 600
+        }
+
+        .met .v {
+            color: #0F172A;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-top: 2px
+        }
+
+        .met .d {
+            font-size: .78rem;
+            color: #64748B;
+            font-weight: 500
+        }
+
+        .up {
+            color: #0D9488 !important
+        }
+
+        .dn {
+            color: #DC2626 !important
+        }
+
+        .g2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px
+        }
+
+        .g3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px
+        }
+
+        .g4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px
+        }
+
+        .g5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px
+        }
+
+        .g6 {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px
+        }
+
+        .g21 {
+            display: grid;
+            grid-template-columns: 2.3fr 1fr;
+            gap: 16px
+        }
+
+        @media(max-width:1000px) {
+            #app {
+                flex-direction: column
+            }
+
+            #side {
+                width: 100%;
+                height: auto;
+                position: static
+            }
+
+            .g2,
+            .g3,
+            .g4,
+            .g5,
+            .g6,
+            .g21 {
+                grid-template-columns: 1fr 1fr
+            }
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            border-bottom: 1px solid #CBD5E1;
+            margin: 10px 0 14px;
+            flex-wrap: wrap
+        }
+
+        .tabs button {
+            background: #F1F5F9;
+            border: 1px solid #E2E8F0;
+            border-bottom: 0;
+            color: #475569;
+            padding: 9px 16px;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: .9rem;
+            font-weight: 600
+        }
+
+        .tabs button.on {
+            background: #FFFFFF;
+            color: #0D9488;
+            border-bottom: 2px solid #0D9488
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 16px;
+            border-radius: 6px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            font-size: 1.05rem
+        }
+
+        .BUY {
+            background: #CCFBF1;
+            color: #0F766E;
+            border: 1px solid #0D9488
+        }
+
+        .HOLD {
+            background: #FEF3C7;
+            color: #B45309;
+            border: 1px solid #D97706
+        }
+
+        .SELL {
+            background: #FEE2E2;
+            color: #B91C1C;
+            border: 1px solid #DC2626
+        }
+
+        .risk {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 14px 16px;
+            min-height: 190px;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, .04)
+        }
+
+        .risk .h {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            color: #0F172A;
+            margin-bottom: 6px
+        }
+
+        .risk .t {
+            font-size: .7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 700
+        }
+
+        .risk p {
+            font-size: .84rem;
+            color: #334155;
+            margin: 4px 0
+        }
+
+        .risk .i {
+            color: #B45309;
+            font-weight: 600
+        }
+
+        .note {
+            color: #64748B;
+            font-size: .78rem
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: .83rem
+        }
+
+        th,
+        td {
+            padding: 6px 9px;
+            border-bottom: 1px solid #E2E8F0;
+            text-align: right;
+            white-space: nowrap;
+            color: #1E293B
+        }
+
+        th:first-child,
+        td:first-child {
+            text-align: left
+        }
+
+        th {
+            color: #475569;
+            font-weight: 600;
+            background: #F1F5F9
+        }
+
+        tr.hl td {
+            background: #CCFBF1;
+            color: #0F766E;
+            font-weight: 700
+        }
+
+        .box {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 10px;
+            padding: 12px 14px;
+            overflow: auto;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, .04)
+        }
+
+        .sl {
+            margin: 8px 0
+        }
+
+        .sl label {
+            display: flex;
+            justify-content: space-between;
+            font-size: .8rem;
+            color: #334155;
+            font-weight: 500
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: #0D9488
+        }
+
+        button.btn,
+        select {
+            background: #FFFFFF;
+            color: #0F172A;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            padding: 7px 12px;
+            cursor: pointer;
+            font-size: .85rem;
+            font-weight: 600
+        }
+
+        button.btn:hover {
+            border-color: #0D9488;
+            background: #F1F5F9
+        }
+
+        .seg {
+            display: flex;
+            gap: 4px;
+            margin: 6px 0
+        }
+
+        .seg button {
+            flex: 1;
+            background: #F1F5F9;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            padding: 6px;
+            cursor: pointer;
+            font-weight: 600
+        }
+
+        .seg button.on {
+            background: #CCFBF1;
+            color: #0F766E;
+            border-color: #0D9488
+        }
+
+        pre {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 12px;
+            overflow: auto;
+            white-space: pre-wrap;
+            font-size: .8rem;
+            max-height: 420px;
+            color: #0F172A
+        }
+
+        .ok {
+            color: #0D9488;
+            font-weight: 700
+        }
+
+        .bad {
+            color: #DC2626;
+            font-weight: 700
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <aside id="side"></aside>
+        <main id="main">
+            <h1>📈 ICBP Equity Research Terminal</h1>
+            <div class="note">PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP.JK) | Data sintetis untuk demonstrasi | Harga
+                per 10 Nov 2026 | Bukan nasihat investasi</div>
+            <div class="tabs" id="tabs"></div>
+            <section id="t0"></section>
+            <section id="t1" hidden></section>
+            <section id="t2" hidden></section>
+            <section id="t3" hidden></section>
+            <section id="t4" hidden></section>
+            <section id="t5" hidden></section>
+        </main>
+    </div>
+
+    <script>
+        /* ========================= UTILITIES & THEME ========================= */
+        const C = { teal: '#0D9488', blue: '#2563EB', amber: '#D97706', red: '#DC2626' };
+        const PAL = [C.teal, C.blue, C.amber, C.red, '#7C3AED', '#64748B'];
+        const $ = id => document.getElementById(id);
+        const sum = a => a.reduce((x, y) => x + y, 0);
+        const fmt = (v, d = 0) => Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+        const idr = v => Math.abs(v) >= 1000 ? 'IDR ' + fmt(v / 1000, 1) + 'T' : 'IDR ' + fmt(v) + 'B';
+        const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+        const spct = (v, d = 1) => (v >= 0 ? '+' : '') + (v * 100).toFixed(d) + '%';
+        const cagr = (a, b, n) => Math.pow(b / a, 1 / n) - 1;
+        function met(l, v, d, cls) { return `<div class="met"><div class="l">${l}</div><div class="v">${v}</div><div class="d ${cls || ''}">${d || '&nbsp;'}</div></div>` }
+        const dcls = x => x >= 0 ? 'up' : 'dn';
+        function L(o = {}) {
+            const b = {
+                paper_bgcolor: '#FFFFFF', plot_bgcolor: '#FFFFFF', font: { color: '#1E293B', size: 12 },
+                margin: { l: 55, r: 25, t: 48, b: 40 }, legend: { orientation: 'h', y: 1.13 }, xaxis: { gridcolor: '#E2E8F0', zeroline: false }, yaxis: { gridcolor: '#E2E8F0', zeroline: false }, hovermode: 'x unified'
+            };
+            for (const k in o) { if (o[k] && typeof o[k] === 'object' && !Array.isArray(o[k]) && b[k] && typeof b[k] === 'object') b[k] = { ...b[k], ...o[k] }; else b[k] = o[k] }
+            return b
+        }
+        const P = (id, d, l) => Plotly.react(id, d, L(l), { displayModeBar: false, responsive: true });
+        const T = t => ({ text: t, font: { size: 14, color: '#0F172A' } });
+        function download(name, text, mime) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; a.click() }
+        function spark(a) {
+            const w = 80, h = 22, mn = Math.min(...a), mx = Math.max(...a), r = mx - mn || 1;
+            const p = a.map((v, i) => `${(i / (a.length - 1) * w).toFixed(1)},${(h - 2 - (v - mn) / r * (h - 4)).toFixed(1)}`).join(' ');
+            return `<svg width="${w}" height="${h}"><polyline points="${p}" fill="none" stroke="#0D9488" stroke-width="1.5"/></svg>`
+        }
+        function polyfit(x, y) {
+            const n = x.length, mx = sum(x) / n, my = sum(y) / n; let sxy = 0, sxx = 0, syy = 0;
+            for (let i = 0; i < n; i++) { sxy += (x[i] - mx) * (y[i] - my); sxx += (x[i] - mx) ** 2; syy += (y[i] - my) ** 2 }
+            const s = sxy / sxx; return { slope: s, icpt: my - s * mx, r2: sxy * sxy / (sxx * syy) }
+        }
+        function quant(a, q) { const s = [...a].sort((x, y) => x - y), p = (s.length - 1) * q, lo = Math.floor(p), hi = Math.ceil(p); return s[lo] + (s[hi] - s[lo]) * (p - lo) }
+        const median = a => quant(a, .5);
+
+        /* ========================= SYNTHETIC DATA (mirrors app.py) ========================= */
+        const FY = [2021, 2022, 2023, 2024, 2025], TAX = .22, MIN = .14, PAYOUT = .45, SH = 11661.9, SHB = SH / 1000, NCI_FV = 1.5;
+        const LAST_TARGET = 9150;
+        const rev = [56804, 64797, 67925, 71200, 74800];
+        const gmA = [.335, .300, .340, .355, .360], opexP = [.185, .185, .185, .188, .188], daP = [.030, .031, .030, .030, .030];
+        const cogs = rev.map((r, i) => r * (1 - gmA[i])), opex = rev.map((r, i) => r * opexP[i]), da = rev.map((r, i) => r * daP[i]);
+        const intr = [1250, 1500, 1700, 1650, 1550], oth = [900, 300, 800, 1000, 1100];
+        const ebit = rev.map((r, i) => r - cogs[i] - opex[i]), pretax = ebit.map((e, i) => e - intr[i] + oth[i]);
+        const tax = pretax.map(p => p * TAX), ni = pretax.map((p, i) => p - tax[i]), mino = ni.map(x => x * MIN), nip = ni.map((x, i) => x - mino[i]);
+        const div = nip.map(x => x * PAYOUT);
+        const rec = [5600, 6300, 6800, 7100, 7450], inv = [5100, 6500, 6100, 6300, 6600], oca = [3200, 3400, 3500, 3600, 3700];
+        const ppe = [24500, 25800, 27000, 28400, 29800], gw = [4800, 4800, 4850, 4850, 4900];
+        const pay = [4800, 5600, 5900, 6100, 6400], ocl = [5000, 5500, 5800, 6000, 6300], oncl = [8000, 8200, 8400, 8600, 8800];
+        const nwcA = rev.map((_, i) => rec[i] + inv[i] + oca[i] - pay[i] - ocl[i]);
+        const dnwc = nwcA.map((v, i) => i === 0 ? 450 : v - nwcA[i - 1]);
+        const onc = [300, 250, 350, 300, 320];
+        const cfo = ni.map((x, i) => x + da[i] - dnwc[i] + onc[i]);
+        const capex = rev.map((r, i) => r * [.052, .058, .050, .048, .047][i]);
+        const borrow = [-500, 1700, -2000, -1200, -1500], invO = [-2000, -3000, -3000, -3200, -3500];
+        const debt = [25500], cash = [20700], eq = [63600];
+        const netchg = cfo.map((x, i) => x - capex[i] - div[i] + borrow[i] + invO[i]);
+        for (let i = 1; i < 5; i++) { debt[i] = debt[i - 1] + borrow[i]; cash[i] = cash[i - 1] + netchg[i]; eq[i] = eq[i - 1] + ni[i] - div[i] }
+        const std = debt.map(d => d * .13), ltd = debt.map(d => d * .87), nci = eq.map(e => e * .12);
+        const liab = pay.map((_, i) => pay[i] + std[i] + ocl[i] + ltd[i] + oncl[i]);
+        const onca = liab.map((l, i) => l + eq[i] - (cash[i] + rec[i] + inv[i] + oca[i] + ppe[i] + gw[i]));
+        const F = {
+            fy: FY, label: FY.map(y => 'FY' + y), rev, cogs, gp: rev.map((r, i) => r - cogs[i]), opex, ebit, da, ebitda: ebit.map((e, i) => e + da[i]), int: intr, oth, pretax, tax, ni, mino, nip,
+            eps: nip.map(x => x / SHB), cash, rec, inv, oca, ppe, gw, onca, pay, std, ocl, ltd, oncl, debt, liab, eq, nci,
+            ta: liab.map((l, i) => l + eq[i]), cfo, capex, fcf: cfo.map((x, i) => x - capex[i]), div, borrow, invO, netchg
+        };
+        F.effTax = F.tax.map((t, i) => t / F.pretax[i]);
+        F.nopat = F.ebit.map((e, i) => e * (1 - F.effTax[i]));
+        F.ic = F.debt.map((d, i) => d + F.eq[i] - F.cash[i]);
+        F.roic = F.nopat.map((n, i) => n / F.ic[i]);
+        F.eqP = F.eq.map((e, i) => e - F.nci[i]);
+        F.roe = F.nip.map((n, i) => n / F.eqP[i]);
+        F.gm = F.gp.map((g, i) => g / rev[i]); F.em = F.ebit.map((e, i) => e / rev[i]); F.dm = F.ebitda.map((e, i) => e / rev[i]); F.nm = F.ni.map((n, i) => n / rev[i]);
+        F.pm = F.nip.map((n, i) => n / rev[i]); F.at = rev.map((r, i) => r / F.ta[i]); F.emul = F.ta.map((t, i) => t / F.eqP[i]);
+        F.nd = F.debt.map((d, i) => d - F.cash[i]); F.ndE = F.nd.map((n, i) => n / F.ebitda[i]); F.de = F.debt.map((d, i) => d / F.eq[i]);
+        F.icov = F.ebit.map((e, i) => e / F.int[i]);
+        F.dso = F.rec.map((r, i) => r / rev[i] * 365); F.dio = F.inv.map((v, i) => v / cogs[i] * 365); F.dpo = F.pay.map((p, i) => p / cogs[i] * 365);
+        F.ccc = F.dso.map((d, i) => d + F.dio[i] - F.dpo[i]);
+        F.ocfNi = F.cfo.map((c, i) => c / F.ni[i]); F.ocfE = F.cfo.map((c, i) => c / F.ebitda[i]); F.fcfm = F.fcf.map((f, i) => f / rev[i]);
+        F.dps = F.div.map(d => d / SHB); F.bvps = F.eqP.map(e => e / SHB);
+        const K = 4; // last index
+
+        /* segments & geography */
+        const SEGN = ['Noodles', 'Dairy', 'Snack Foods', 'Food Seasonings', 'Nutrition & Special Foods', 'Beverages'];
+        const SEGS = {
+            Noodles: [.700, .695, .690, .686, .682], Dairy: [.115, .118, .120, .122, .124], 'Snack Foods': [.045, .046, .047, .048, .049],
+            'Food Seasonings': [.055, .056, .057, .058, .059], 'Nutrition & Special Foods': [.045, .046, .047, .048, .049]
+        };
+        SEGS.Beverages = FY.map((_, i) => 1 - ['Noodles', 'Dairy', 'Snack Foods', 'Food Seasonings', 'Nutrition & Special Foods'].reduce((a, k) => a + SEGS[k][i], 0));
+        const MEA = [.115, .120, .125, .128, .132];
+
+        /* prices */
+        function rng(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296 } }
+        const R = rng(42), randn = () => { let u = 0; while (!u) u = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * R()) };
+        const PX = (() => {
+            const N = 1000, dates = []; let d = new Date(Date.UTC(2026, 10, 10));
+            while (dates.length < N) { if (d.getUTCDay() % 6 !== 0) dates.push(d.toISOString().slice(0, 10)); d = new Date(d.getTime() - 864e5) }
+            dates.reverse();
+            const r = [], cum = []; let c = 0; for (let i = 0; i < N; i++) { r.push(randn() * .011 * (1 + .4 * Math.sin(i / 55))); c += r[i]; cum.push(c) }
+            const last = cum[N - 1], cl = cum.map((x, i) => { const w = (i + 1) / N; return Math.exp(x - w * last + w * Math.log(1.10)) });
+            const sc = LAST_TARGET / cl[N - 1], tick = x => Math.round(x / 25) * 25;
+            const o = [], h = [], l = [], cc = [], v = [];
+            for (let i = 0; i < N; i++) {
+                const close = cl[i] * sc, prev = i ? cl[i - 1] * sc : close, op = prev * (1 + randn() * .004);
+                o.push(tick(op)); cc.push(tick(close));
+                h.push(tick(Math.max(op, close) * (1 + Math.abs(randn()) * .005))); l.push(tick(Math.min(op, close) * (1 - Math.abs(randn()) * .005)));
+                v.push(Math.round(8e6 * Math.exp(randn() * .35) * (1 + 12 * Math.abs(r[i]))))
+            }
+            const close = cc, ma = (n) => close.map((_, i) => i < n - 1 ? null : sum(close.slice(i - n + 1, i + 1)) / n);
+            const rsi = [], al = 1 / 14; let ag = 0, aL = 0;
+            for (let i = 0; i < N; i++) {
+                if (i === 0) { rsi.push(null); continue } const dd = close[i] - close[i - 1], g = Math.max(dd, 0), ls = Math.max(-dd, 0);
+                ag = i === 1 ? g : (1 - al) * ag + al * g; aL = i === 1 ? ls : (1 - al) * aL + al * ls; rsi.push(i < 14 ? null : 100 - 100 / (1 + ag / (aL || 1e-9)))
+            }
+            const ret = close.map((x, i) => i ? x / close[i - 1] - 1 : 0), vol = close.map((_, i) => {
+                if (i < 30) return null; const s = ret.slice(i - 29, i + 1), m = sum(s) / 30;
+                return Math.sqrt(sum(s.map(x => (x - m) ** 2)) / 29) * Math.sqrt(252) * 100
+            });
+            return { date: dates, open: o, high: h, low: l, close, volume: v, ma50: ma(50), ma200: ma(200), rsi, vol }
+        })();
+        const LAST = PX.close[PX.close.length - 1];
+
+        /* peers */
+        const PEERS = [['INDF', 62, 7.5, 7.0, 4.8, .90, 12.5, 14.0, 4.2, 6.0], ['MYOR', 52, 18, 16, 10.5, 3.3, 18.5, 9.5, 1.4, 9.0], ['ULTJ', 18, 14, 12.5, 7.8, 2.6, 18, 13, 2.5, 8.0],
+        ['UNVR', 58, 17, 16, 11, 14.5, 82, 17, 5.5, 2.0], ['CMRY', 28, 21, 18.5, 13.5, 5.5, 28, 20, 2.1, 12.0]]
+            .map(r => ({ t: r[0], mcap: r[1], pe: r[2], pef: r[3], ev: r[4], pbv: r[5], roe: r[6], opm: r[7], dy: r[8], eg: r[9] }));
+
+        /* ========================= MODELS ========================= */
+        const B = {
+            rev: F.rev[K], m: F.ebit[K] / F.rev[K], daP: F.da[K] / F.rev[K], nwcP: (F.rec[K] + F.inv[K] + F.oca[K] - F.pay[K] - F.ocl[K]) / F.rev[K],
+            nd: F.debt[K] - F.cash[K], nci: F.nci[K] * NCI_FV, shB: SHB, yr: FY[K]
+        };
+        function dcf(a) {
+            const t = [1, 2, 3, 4, 5], rv = t.map(k => B.rev * (1 + a.rev_cagr) ** k), mg = t.map(k => B.m + (a.ebit_margin - B.m) * k / 5),
+                eb = rv.map((r, i) => r * mg[i]), np = eb.map(e => e * (1 - TAX)), d = rv.map(r => r * B.daP), cx = rv.map(r => r * a.capex_pct),
+                dn = rv.map((r, i) => (r - (i ? rv[i - 1] : B.rev)) * B.nwcP), u = np.map((n, i) => n + d[i] - cx[i] - dn[i]),
+                pv = u.map((x, i) => x / (1 + a.wacc) ** (i + 1)), tv = u[4] * (1 + a.tg) / Math.max(a.wacc - a.tg, .005), pvtv = tv / (1 + a.wacc) ** 5,
+                ev = sum(pv) + pvtv, eqv = ev - B.nd - B.nci, price = eqv / B.shB;
+            return {
+                a, years: t.map(k => 'FY' + (B.yr + k) + 'E'), rv, mg, eb, np, d, cx, dn, u, pv, tv, pvtv, pvf: sum(pv), ev, eq: eqv, price,
+                tvShare: pvtv / ev, tvE: tv / (eb[4] + d[4]), growth: rv.map((r, i) => r / (i ? rv[i - 1] : B.rev) - 1)
+            }
+        }
+        const SC = ['Bull', 'Base', 'Bear'];
+        const SD = {
+            Bull: { rev_cagr: 8, ebit_margin: 18.5, wacc: 9.5, tg: 3.5, capex_pct: 4.5 }, Base: { rev_cagr: 6.5, ebit_margin: 17.5, wacc: 10, tg: 3, capex_pct: 4.8 },
+            Bear: { rev_cagr: 4, ebit_margin: 15.5, wacc: 10.75, tg: 2.5, capex_pct: 5.2 }
+        };
+        const S = JSON.parse(JSON.stringify(SD));
+        const SLID = [['rev_cagr', 'Revenue CAGR %', 0, 15], ['ebit_margin', 'Target EBIT Margin %', 8, 25], ['wacc', 'WACC %', 6, 15], ['tg', 'Terminal Growth %', 0, 6], ['capex_pct', 'CapEx % of Sales', 2, 10]];
+        const asm = s => Object.fromEntries(Object.entries(S[s]).map(([k, v]) => [k, v / 100]));
+        let scen = 'Base', tab = 0, D = {}, CP = [], X = {};
+        const rating = u => u >= .15 ? 'BUY' : u <= -.10 ? 'SELL' : 'HOLD';
+
+        const MB = { rev: F.rev[K], cogs: F.cogs[K], debt: F.debt[K], ps: F.nip[K] / F.ni[K], eps: F.eps[K], gm: F.gp[K] / F.rev[K], ebit: F.ebit[K] };
+        const MIX = { wheat: .32, cpo: .12, oraw: .28, oh: .28 }, USDO = .25, FLOAT = .40, USDD = .15;
+        function mx({ fx = 0, wheat = 0, cpo = 0, bi = 0, infl = 0, pt = .35 } = {}) {
+            const rv = MB.rev, cg = MB.cogs, gp = rv - cg, inf = infl / 100;
+            const wc = cg * MIX.wheat * ((1 + fx) * (1 + wheat) - 1), cc = cg * MIX.cpo * ((1 + cpo) * (1 + .5 * fx) - 1),
+                oc = cg * (MIX.oraw * (USDO * fx + inf) + MIX.oh * inf), dc = wc + cc + oc, dvol = -.8 * infl / 100, dv = gp * dvol, dp = pt * dc,
+                de = -dc + dv + dp, di = -MB.debt * FLOAT * bi / 1e4, dfx = -MB.debt * USDD * fx, dpt = de + di + dfx, conv = (1 - TAX) * MB.ps / SHB, deps = dpt * conv,
+                rn = rv * (1 + dvol) + dp, cn = cg * (1 + dvol) + dc;
+            return {
+                dcogs: cn / cg - 1, gmN: (rn - cn) / rn, dEbit: de / MB.ebit, deps, epsN: MB.eps + deps, depsP: deps / MB.eps,
+                comp: {
+                    'Wheat (USD & FX)': -wc * conv, 'CPO': -cc * conv, 'Other inputs & overhead': -oc * conv, 'Price pass-through': dp * conv,
+                    'Volume (purchasing power)': dv * conv, 'Interest (floating debt)': di * conv, 'FX on USD debt': dfx * conv
+                }
+            }
+        }
+
+        function buildComps() {
+            const b = D.Base, nopat0 = B.rev * B.m * (1 - TAX), fwdEps = F.eps[K] * b.np[0] / nopat0, fwdE = F.ebitda[K] * (b.eb[0] + b.d[0]) / F.ebitda[K];
+            X.fwdEps = fwdEps;
+            const mc = LAST * SHB, ev = mc + B.nd + B.nci;
+            CP = [{
+                t: 'ICBP', mcap: mc / 1000, pe: LAST / F.eps[K], pef: LAST / fwdEps, ev: ev / F.ebitda[K], pbv: LAST / F.bvps[K], roe: F.roe[K] * 100, opm: F.em[K] * 100,
+                dy: F.dps[K] / LAST * 100, eg: (F.ebitda[K] / F.ebitda[K - 1] - 1) * 100
+            }, ...PEERS]
+        }
+        function football() {
+            const pr = CP.slice(1), dp = SC.map(s => D[s].price), lo = PX.low.slice(-252), hi = PX.high.slice(-252),
+                toPx = e => (e - B.nd - B.nci) / B.shB;
+            return [['DCF (Bear - Bull)', Math.min(...dp), Math.max(...dp)], ['52-Week Trading Range', Math.min(...lo), Math.max(...hi)],
+            ['P/E Fwd (peer IQR)', quant(pr.map(p => p.pef), .25) * X.fwdEps, quant(pr.map(p => p.pef), .75) * X.fwdEps],
+            ['EV/EBITDA TTM (peer IQR)', toPx(quant(pr.map(p => p.ev), .25) * F.ebitda[K]), toPx(quant(pr.map(p => p.ev), .75) * F.ebitda[K])]]
+        }
+        function recompute() { SC.forEach(s => D[s] = dcf(asm(s))); X.tp = Math.round(D[scen].price / 50) * 50; X.up = X.tp / LAST - 1; X.rt = rating(X.up); buildComps() }
+
+        /* ========================= SIDEBAR ========================= */
+        function renderSide() {
+            const chg = LAST / PX.close[PX.close.length - 2] - 1;
+            $('side').innerHTML = `<h3>ICBP.JK</h3><div class="note">PT Indofood CBP Sukses Makmur Tbk</div>
+ <div style="margin:12px 0">${met('Share Price (mock, IDR)', fmt(LAST), spct(chg, 2) + ' d/d', dcls(chg))}</div>
+ <div class="g2">${met('Target Price', fmt(X.tp))}${met('Upside', spct(X.up), '', dcls(X.up))}</div>
+ <div style="margin:12px 0"><span class="badge ${X.rt}">${X.rt}</span> <span class="note">&nbsp;${scen} case DCF</span></div>
+ <hr style="border-color:#E2E8F0"><div class="note">Active Valuation Scenario</div>
+ <div class="seg">${SC.map(s => `<button class="${s === scen ? 'on' : ''}" onclick="setScen('${s}')">${s}</button>`).join('')}</div>
+ <div style="margin-top:12px"><button class="btn" style="width:100%" onclick="exportCSV()">⬇ Export cleaned dataset (CSV)</button></div>
+ <p class="note">Versi HTML hanya menampilkan data tahunan (5Y). Pipeline SQL + toggle kuartalan tersedia di <code>app.py</code>.</p>`}
+        function setScen(s) { scen = s; update() }
+        function exportCSV() {
+            const cols = ['fy', 'rev', 'cogs', 'gp', 'opex', 'ebit', 'da', 'ebitda', 'int', 'oth', 'pretax', 'tax', 'ni', 'mino', 'nip', 'eps', 'cash', 'rec', 'inv', 'ppe', 'ta', 'debt', 'liab', 'eq', 'nci', 'cfo', 'capex', 'fcf', 'div'];
+            const rows = [cols.join(',')]; for (let i = 0; i < 5; i++)rows.push(cols.map(c => c === 'fy' ? F.fy[i] : (+F[c][i]).toFixed(1)).join(','));
+            download('icbp_annual_financials_clean.csv', rows.join('\n'), 'text/csv')
+        }
+
+        /* ========================= TAB 0: SUMMARY ========================= */
+        function risk(t, sev, body, imp, mit) {
+            const c = { High: C.red, Medium: C.amber, Low: C.teal }[sev];
+            return `<div class="risk" style="border-left:4px solid ${c}"><div class="h"><span>${t}</span><span class="t" style="background:${c}22;color:${c}">${sev.toUpperCase()}</span></div><p>${body}</p><p class="i">${imp}</p><p><b>Mitigant:</b> ${mit}</p></div>`
+        }
+        function renderT0() {
+            const r = D[scen], c = CP[0], pr = CP.slice(1), sp = (F.roic[K] - r.a.wacc) * 100;
+            const yrOpts = FY.map(y => `<option ${y === (X.yr || 2025) ? 'selected' : ''}>${y}</option>`).join('');
+            const fxI = mx({ fx: .10 }).depsP, whI = mx({ wheat: .20 }).depsP, cpI = mx({ cpo: .20 }).depsP, inI = mx({ infl: 1 }).depsP;
+            $('t0').innerHTML = `<div class="g21"><div><h2>Investment Thesis & Equity Research Report</h2>
+ <p><b>Rekomendasi: ${X.rt} | Target Price IDR ${fmt(X.tp)} (${spct(X.up)}) | DCF kasus ${scen}</b></p>
+ <p><b>1. Moat.</b> ICBP adalah franchise mi instan bermerek terbesar di Indonesia (Indomie, Pop Mie) dengan lini dairy, snack, seasonings, nutrisi, dan minuman. Harga terjangkau, jaringan distribusi nasional, dan skala pembelian grup (gandum, CPO, kemasan) membentuk keunggulan biaya dan jangkauan yang sulit ditiru pesaing kecil.</p>
+ <p><b>2. Ekspansi internasional Pinehill.</b> Pangsa Middle East & Africa naik dari <b>${pct(MEA[0])}</b> menjadi <b>${pct(MEA[K])}</b> dari penjualan sejak FY${FY[0]}, mengurangi ketergantungan pada permintaan rupiah dan membuka pasar mi yang masih kurang tergarap.</p>
+ <p><b>3. Margin & return.</b> Margin EBIT <b>${pct(F.em[K])}</b>; ROIC <b>${pct(F.roic[K])}</b>, selisih ${sp >= 0 ? '+' : ''}${sp.toFixed(1)} pp terhadap WACC ${pct(r.a.wacc, 2)}.</p>
+ <p><b>4. Neraca.</b> Net debt/EBITDA <b>${F.ndE[K].toFixed(2)}x</b>, interest cover <b>${F.icov[K].toFixed(1)}x</b>; ruang untuk dividen (payout ~${pct(PAYOUT, 0)}) dan akuisisi.</p>
+ <p><b>5. Valuasi.</b> P/E forward <b>${c.pef.toFixed(1)}x</b> dan EV/EBITDA <b>${c.ev.toFixed(1)}x</b> vs median peer ${median(pr.map(p => p.pef)).toFixed(1)}x dan ${median(pr.map(p => p.ev)).toFixed(1)}x. DCF: IDR ${fmt(r.price)}/saham; ${pct(r.tvShare, 0)} dari EV berasal dari terminal value.</p>
+ <p class="note">Yang bisa mengubah pandangan: pelemahan USD/IDR tanpa kenaikan harga jual, lonjakan gandum/CPO, atau pergeseran trade-down volume mi. Seluruh angka berasal dari data sintetis.</p></div>
+ <div><h2>Snapshot</h2><span class="badge ${X.rt}">${X.rt}</span><div style="height:8px"></div>
+ <div style="display:grid;gap:8px">${met('DCF Value / Share', 'IDR ' + fmt(r.price), spct(r.price / LAST - 1) + ' vs last', dcls(r.price / LAST - 1))}
+ ${met('Enterprise Value', idr(r.ev))}${met('P/E TTM | Fwd', c.pe.toFixed(1) + 'x | ' + c.pef.toFixed(1) + 'x')}${met('Dividend Yield', c.dy.toFixed(1) + '%')}</div></div></div>
+ <h2>Revenue Segments Breakdown</h2><div class="note">Tahun fiskal (donut): <select id="yrSel" onchange="X.yr=+this.value;renderT0()">${yrOpts}</select></div>
+ <div class="g2"><div id="c_sd" style="height:360px"></div><div id="c_ss" style="height:360px"></div>
+ <div id="c_gd" style="height:320px"></div><div id="c_gs" style="height:320px"></div></div>
+ <h2>Key Risks Matrix</h2><div class="g3">
+ ${risk('FX / USD debt exposure', 'High', 'Pinjaman USD tanpa lindung nilai plus biaya gandum dan kemasan berbasis USD membuat laba sensitif terhadap pelemahan rupiah.', `Rupiah melemah 10%: EPS ${spct(fxI)} (pass-through 35%)`, 'Lindung nilai alami dari pendapatan Pinehill; forward cover; penyesuaian harga.')}
+ ${risk('Inflasi gandum & CPO', 'High', 'Gandum (~32% COGS) dan CPO (~12%) adalah biaya terbesar; kenaikan harga jual tertinggal 2-3 kuartal.', `Gandum +20%: EPS ${spct(whI)}; CPO +20%: EPS ${spct(cpI)}`, 'Pembelian forward, multi-origin, kenaikan harga selektif.')}
+ ${risk('Daya beli konsumen', 'Medium', 'Mi massal bersifat defensif, namun volume turun saat inflasi melampaui upah dan konsumen trade-down.', `Inflasi +1pp: EPS ${spct(inI)} (efek volume + biaya)`, 'Kemasan hemat, arsitektur harga, diversifikasi ekspor.')}</div>`;
+            const yr = +(X.yr || 2025), i = FY.indexOf(yr);
+            const sv = SEGN.map(s => SEGS[s][i] * F.rev[i]);
+            P('c_sd', [{ type: 'pie', labels: SEGN, values: sv, hole: .55, marker: { colors: PAL }, textinfo: 'label+percent', sort: false }], { title: T('Revenue by Division - FY' + yr), hovermode: 'closest', showlegend: false });
+            P('c_ss', SEGN.map((s, k) => ({ type: 'bar', name: s, x: F.label, y: FY.map((_, j) => SEGS[s][j] * F.rev[j]), marker: { color: PAL[k] } })), { barmode: 'stack', title: T('Divisional Revenue (IDR bn)') });
+            P('c_gd', [{ type: 'pie', labels: ['Indonesia', 'Middle East & Africa'], values: [(1 - MEA[i]) * F.rev[i], MEA[i] * F.rev[i]], hole: .55, marker: { colors: [C.blue, C.amber] }, textinfo: 'label+percent', sort: false }], { title: T('Geographic Split - FY' + yr), hovermode: 'closest', showlegend: false });
+            P('c_gs', [{ type: 'bar', name: 'Indonesia', x: F.label, y: FY.map((_, j) => (1 - MEA[j]) * F.rev[j]), marker: { color: C.blue } },
+            { type: 'bar', name: 'Middle East & Africa', x: F.label, y: FY.map((_, j) => MEA[j] * F.rev[j]), marker: { color: C.amber } }], { barmode: 'stack', title: T('Indonesia vs Middle East & Africa (IDR bn)') })
+        }
+
+        /* ========================= TAB 1: FUNDAMENTALS ========================= */
+        const ST = {
+            'Income Statement': [['Revenue', 'rev'], ['COGS', 'cogs'], ['Gross Profit', 'gp'], ['Operating Expenses', 'opex'], ['EBIT', 'ebit'], ['D&A', 'da'], ['EBITDA', 'ebitda'], ['Interest Expense', 'int'], ['Other Income', 'oth'], ['Pre-tax Income', 'pretax'], ['Tax', 'tax'], ['Net Income', 'ni'], ['Minority Interest', 'mino'], ['Net Income (Parent)', 'nip'], ['EPS (IDR)', 'eps']],
+            'Balance Sheet': [['Cash', 'cash'], ['Receivables', 'rec'], ['Inventories', 'inv'], ['Other Current Assets', 'oca'], ['PP&E', 'ppe'], ['Goodwill & Intangibles', 'gw'], ['Other Non-current Assets', 'onca'], ['Total Assets', 'ta'], ['Payables', 'pay'], ['Short-term Debt', 'std'], ['Other Current Liabilities', 'ocl'], ['Long-term Debt', 'ltd'], ['Other Non-current Liabilities', 'oncl'], ['Total Liabilities', 'liab'], ['Total Equity', 'eq'], ['of which NCI', 'nci']],
+            'Cash Flow': [['Operating Cash Flow', 'cfo'], ['CapEx', 'capex'], ['Free Cash Flow', 'fcf'], ['Dividends Paid', 'div'], ['Net Borrowing', 'borrow'], ['Other Investing', 'invO'], ['Net Change in Cash', 'netchg']]
+        };
+        let stmt = 'Income Statement';
+        function renderT1() {
+            const g = k => F[k][K], p = k => F[k][K - 1], d = (a, b) => spct(a / b - 1), w = wc => D[scen].a.wacc;
+            $('t1').innerHTML = `<div class="g6">${met('Revenue', idr(g('rev')), d(g('rev'), p('rev')), dcls(g('rev') - p('rev')))}
+ ${met('EBIT', idr(g('ebit')), d(g('ebit'), p('ebit')), dcls(g('ebit') - p('ebit')))}
+ ${met('Net Income', idr(g('nip')), d(g('nip'), p('nip')), dcls(g('nip') - p('nip')))}
+ ${met('Free Cash Flow', idr(g('fcf')), d(g('fcf'), p('fcf')), dcls(g('fcf') - p('fcf')))}
+ ${met('ROE', pct(g('roe')), ((g('roe') - p('roe')) * 100 >= 0 ? '+' : '') + ((g('roe') - p('roe')) * 100).toFixed(1) + ' pp', dcls(g('roe') - p('roe')))}
+ ${met('ROIC', pct(g('roic')), ((g('roic') - p('roic')) * 100 >= 0 ? '+' : '') + ((g('roic') - p('roic')) * 100).toFixed(1) + ' pp', dcls(g('roic') - p('roic')))}</div>
+ <h2>Profitability & Growth</h2><div class="g2"><div id="f1" style="height:380px"></div><div id="f2" style="height:380px"></div></div>
+ <h2>Returns & Leverage</h2><div class="g2"><div id="f3" style="height:360px"></div>
+ <div class="box"><b>DuPont decomposition of ROE</b><table><tr><th></th>${F.label.map(l => `<th>${l}</th>`).join('')}</tr>
+ <tr><td>Net margin (parent)</td>${F.pm.map(v => `<td>${pct(v)}</td>`).join('')}</tr>
+ <tr><td>× Asset turnover</td>${F.at.map(v => `<td>${v.toFixed(2)}</td>`).join('')}</tr>
+ <tr><td>× Equity multiplier</td>${F.emul.map(v => `<td>${v.toFixed(2)}</td>`).join('')}</tr>
+ <tr class="hl"><td>= ROE</td>${F.roe.map(v => `<td>${pct(v)}</td>`).join('')}</tr></table>
+ <p class="note">ROE = (NI induk / Pendapatan) × (Pendapatan / Aset) × (Aset / Ekuitas induk), saldo akhir tahun.</p></div>
+ <div id="f4" style="height:340px"></div><div id="f5" style="height:340px"></div>
+ <div id="f6" style="height:340px"></div><div id="f7" style="height:340px"></div></div>
+ <h2>Interactive Financial Statements</h2>
+ <div class="seg" style="max-width:480px">${Object.keys(ST).map(k => `<button class="${k === stmt ? 'on' : ''}" onclick="stmt='${k}';renderT1()">${k}</button>`).join('')}</div>
+ <div class="box"><table><tr><th>IDR bn</th>${F.label.map(l => `<th>${l}</th>`).join('')}<th>Trend</th></tr>
+ ${ST[stmt].map(([n, k]) => `<tr><td>${n}</td>${F[k].map(v => `<td>${fmt(v, k === 'eps' ? 0 : 1)}</td>`).join('')}<td>${spark(F[k])}</td></tr>`).join('')}</table></div>
+ <p class="note">Data provenance: seluruh angka dihasilkan di kode (sintetis). Versi Streamlit membaca dari SQLite view yang membersihkan dan menurunkan subtotal.</p>`;
+            const x = F.label;
+            P('f1', [{ type: 'bar', x, y: F.rev, name: 'Revenue (IDR bn)', marker: { color: C.blue } }, { x, y: F.nip, name: 'Net income, parent', yaxis: 'y2', mode: 'lines+markers', line: { color: C.teal, width: 3 } }],
+                { title: T(`Revenue CAGR ${pct(cagr(F.rev[0], F.rev[K], 4))} | Earnings CAGR ${pct(cagr(F.nip[0], F.nip[K], 4))} (FY21-FY25)`), yaxis2: { overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' } });
+            P('f2', [['Gross', 'gm', C.teal], ['EBIT', 'em', C.blue], ['EBITDA', 'dm', C.amber], ['Net', 'nm', C.red]].map(([n, k, c]) => ({ x, y: F[k].map(v => v * 100), name: n + ' margin', mode: 'lines+markers', line: { color: c, width: 3 } })),
+                { title: T('Margin Evolution'), yaxis: { ticksuffix: '%' } });
+            const wv = D[scen].a.wacc * 100;
+            P('f3', [{ type: 'bar', x, y: F.roic.map(v => v * 100 - wv), name: 'ROIC - WACC spread (pp)', yaxis: 'y2', marker: { color: 'rgba(0,245,212,.25)' } },
+            { x, y: F.roic.map(v => v * 100), name: 'ROIC', mode: 'lines+markers', line: { color: C.teal, width: 3 } }, { x, y: F.roe.map(v => v * 100), name: 'ROE', mode: 'lines+markers', line: { color: C.blue, width: 3 } },
+            { x, y: x.map(() => wv), name: `WACC (${scen})`, mode: 'lines', line: { color: C.amber, dash: 'dash' } }], { title: T('ROIC & ROE vs WACC'), yaxis: { ticksuffix: '%' }, yaxis2: { overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' } });
+            P('f4', [{ type: 'bar', x, y: F.ndE, name: 'Net debt / EBITDA (x)', marker: { color: C.teal } }, { x, y: F.de, name: 'Debt / Equity (x)', yaxis: 'y2', mode: 'lines+markers', line: { color: C.amber, width: 3 } }],
+                { title: T('Leverage'), yaxis2: { overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' } });
+            P('f5', [{ type: 'bar', x, y: F.icov, marker: { color: C.blue }, text: F.icov.map(v => v.toFixed(1) + 'x'), textposition: 'outside' }], { title: T('Interest Coverage (EBIT / interest)'), showlegend: false });
+            P('f6', [{ type: 'bar', x, y: F.ccc, name: 'Cash conversion cycle', marker: { color: 'rgba(59,130,246,.35)' } },
+            ...[['DSO', 'dso', C.teal], ['DIO', 'dio', C.amber], ['DPO', 'dpo', C.red]].map(([n, k, c]) => ({ x, y: F[k], name: n, mode: 'lines+markers', line: { color: c, width: 2 } }))], { title: T('Working Capital: Cash Conversion Cycle (days)') });
+            P('f7', [['OCF / Net income', 'ocfNi', C.teal], ['OCF / EBITDA', 'ocfE', C.blue], ['FCF margin', 'fcfm', C.amber]].map(([n, k, c]) => ({ x, y: F[k].map(v => v * 100), name: n, mode: 'lines+markers', line: { color: c, width: 3 } })),
+                { title: T('Cash-Flow Quality'), yaxis: { ticksuffix: '%' } })
+        }
+
+        /* ========================= TAB 2: DCF ========================= */
+        let slidersBuilt = false;
+        function buildSliders() {
+            $('t2').innerHTML = `<h2>Scenario Assumptions</h2><div class="note" id="dcfHead"></div><div style="margin:6px 0"><button class="btn" onclick="resetS()">Reset scenarios</button></div>
+ <div class="g3">${SC.map(s => `<div class="box"><b id="sh_${s}"></b>${SLID.map(([k, l, lo, hi]) => `<div class="sl"><label>${l}<span id="v_${s}_${k}">${S[s][k].toFixed(2)}</span></label>
+ <input type="range" min="${lo}" max="${hi}" step="0.25" value="${S[s][k]}" id="r_${s}_${k}" oninput="S['${s}']['${k}']=+this.value;$('v_${s}_${k}').textContent=(+this.value).toFixed(2);update()"></div>`).join('')}</div>`).join('')}</div>
+ <div id="dcfOut"></div>`; slidersBuilt = true
+        }
+        function resetS() { for (const s of SC) for (const [k] of SLID) { S[s][k] = SD[s][k]; $(`r_${s}_${k}`).value = SD[s][k]; $(`v_${s}_${k}`).textContent = SD[s][k].toFixed(2) } update() }
+        function sensGrid(a) {
+            const ws = [-.015, -.01, -.005, 0, .005, .01, .015].map(x => +(a.wacc + x).toFixed(4)), gs = [-.01, -.005, 0, .005, .01].map(x => +Math.max(a.tg + x, 0).toFixed(4));
+            return { ws, gs, z: gs.map(g => ws.map(w => w > g + .004 ? dcf({ ...a, wacc: w, tg: g }).price : null)) }
+        }
+        function renderT2() {
+            if (!slidersBuilt) buildSliders();
+            SC.forEach(s => $('sh_' + s).textContent = s + ' Case' + (s === scen ? '  ✅ active' : ''));
+            $('dcfHead').innerHTML = `Base year FY${B.yr}A: revenue ${idr(B.rev)}, EBIT margin ${pct(B.m)}, D&A ${pct(B.daP)} dari penjualan, NWC ${pct(B.nwcP)} dari penjualan, net debt ${idr(B.nd)}. Skenario aktif (sidebar): <b>${scen}</b>.`;
+            const r = D[scen], rows = [['Revenue', r.rv], ['Revenue growth %', r.growth.map(v => v * 100), 1], ['Operating (EBIT) margin %', r.mg.map(v => v * 100), 1], ['EBIT', r.eb], ['NOPAT', r.np], ['D&A', r.d], ['CapEx', r.cx], ['Change in NWC', r.dn], ['Unlevered FCF', r.u], ['PV of UFCF', r.pv]];
+            const ff = football(), sg = sensGrid(r.a), up = r.price / LAST - 1;
+            $('dcfOut').innerHTML = `<h2>5-Year Forecast - ${scen} Case</h2><div class="box"><table><tr><th>IDR bn</th>${r.years.map(y => `<th>${y}</th>`).join('')}</tr>
+ ${rows.map(([n, a, dd]) => `<tr><td>${n}</td>${a.map(v => `<td>${fmt(v, dd || 0)}</td>`).join('')}</tr>`).join('')}</table></div>
+ <p class="note">Diskonto akhir tahun; margin EBIT bergerak linear ke target; ΔNWC = NWC% × perubahan pendapatan.</p>
+ <div id="d1" style="height:360px"></div>
+ <h2>DCF Valuation Output</h2><div class="g5">${met('Enterprise Value', idr(r.ev))}${met('Implied Equity Value', idr(r.eq))}${met('Implied Share Price', 'IDR ' + fmt(r.price))}${met('Current Price', 'IDR ' + fmt(LAST))}${met('Upside / Downside', spct(up), '', dcls(up))}</div>
+ <div class="g21" style="grid-template-columns:1fr 2fr;margin-top:12px"><div><div class="box"><table>
+ <tr><td>PV of UFCF (5Y)</td><td>${fmt(r.pvf)}</td></tr><tr><td>PV of terminal value</td><td>${fmt(r.pvtv)}</td></tr><tr class="hl"><td>Enterprise value</td><td>${fmt(r.ev)}</td></tr>
+ <tr><td>Less: net debt</td><td>${fmt(-B.nd)}</td></tr><tr><td>Less: NCI (1.5x book)</td><td>${fmt(-B.nci)}</td></tr><tr class="hl"><td>Equity value</td><td>${fmt(r.eq)}</td></tr></table></div>
+ <p class="note">Terminal value = ${pct(r.tvShare, 0)} dari EV; implied TV/EBITDA ${r.tvE.toFixed(1)}x.</p>
+ <div style="display:grid;gap:8px">${SC.map(s => met(s + ' value / share', 'IDR ' + fmt(D[s].price), spct(D[s].price / LAST - 1), dcls(D[s].price / LAST - 1))).join('')}</div></div>
+ <div id="d2" style="height:380px"></div></div>
+ <h2>Sensitivity: Implied Share Price (IDR)</h2><div id="d3" style="height:400px"></div>`;
+            P('d1', [{ type: 'bar', x: r.years, y: r.rv, name: 'Revenue', marker: { color: C.blue } }, { type: 'bar', x: r.years, y: r.u, name: 'UFCF', marker: { color: C.teal } },
+            { x: r.years, y: r.mg.map(v => v * 100), name: 'EBIT margin %', yaxis: 'y2', mode: 'lines+markers', line: { color: C.amber, width: 3 } }],
+                { title: T('Forecast Revenue, UFCF and Operating Margin'), barmode: 'group', yaxis2: { overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' } });
+            P('d2', [{
+                type: 'bar', orientation: 'h', y: ff.map(r => r[0]), x: ff.map(r => r[2] - r[1]), base: ff.map(r => r[1]), marker: { color: [C.teal, '#94A3B8', C.blue, '#8B5CF6'] },
+                text: ff.map(r => fmt(r[1]) + ' - ' + fmt(r[2])), textposition: 'inside', insidetextanchor: 'middle', hoverinfo: 'text'
+            }],
+                {
+                    title: T('Football Field Valuation (IDR per share)'), hovermode: 'closest', showlegend: false, yaxis: { autorange: 'reversed' },
+                    shapes: [{ type: 'line', x0: LAST, x1: LAST, y0: 0, y1: 1, yref: 'paper', line: { color: C.amber, dash: 'dash' } }, { type: 'line', x0: r.price, x1: r.price, y0: 0, y1: 1, yref: 'paper', line: { color: C.red, dash: 'dot' } }],
+                    annotations: [{ x: LAST, y: 1.04, yref: 'paper', text: 'Current', showarrow: false, font: { color: C.amber } }, { x: r.price, y: -.1, yref: 'paper', text: 'DCF (' + scen + ')', showarrow: false, font: { color: C.red } }]
+                });
+            P('d3', [{
+                type: 'heatmap', z: sg.z, x: sg.ws.map(v => pct(v, 2)), y: sg.gs.map(v => pct(v, 2)), zmid: LAST, colorscale: [[0, '#FEE2E2'], [.5, '#F1F5F9'], [1, '#CCFBF1']],
+                text: sg.z.map(rw => rw.map(v => v == null ? 'n/a' : fmt(v))), texttemplate: '%{text}', hoverongaps: false
+            }],
+                { title: T(`WACC vs Terminal Growth (${scen}; warna berpusat di harga saat ini)`), hovermode: 'closest', xaxis: { title: 'WACC' }, yaxis: { title: 'Terminal growth' } })
+        }
+
+        /* ========================= TAB 3: COMPS ========================= */
+        let hideU = true;
+        function scatter(id, df, xk, yk, xt, yt, title) {
+            const pr = df.slice(1), ic = df[0], fit = polyfit(pr.map(p => p[xk]), pr.map(p => p[yk])), xs = [Math.min(...df.map(p => p[xk])), Math.max(...df.map(p => p[xk]))];
+            const implied = fit.slope * ic[xk] + fit.icpt, prem = implied > 0 ? ic[yk] / implied - 1 : null;
+            P(id, [{ x: pr.map(p => p[xk]), y: pr.map(p => p[yk]), text: pr.map(p => p.t), mode: 'markers+text', textposition: 'top center', name: 'Peers', marker: { size: 15, color: C.blue, line: { width: 1, color: '#F8FAFC' } } },
+            { x: [ic[xk]], y: [ic[yk]], text: ['ICBP'], mode: 'markers+text', textposition: 'top center', name: 'ICBP', marker: { size: 22, color: C.teal, symbol: 'diamond', line: { width: 1, color: '#F8FAFC' } } },
+            { x: xs, y: xs.map(x => fit.slope * x + fit.icpt), mode: 'lines', name: 'Peer regression', line: { color: C.amber, dash: 'dash' } }],
+                { title: T(title), hovermode: 'closest', xaxis: { title: xt }, yaxis: { title: yt } });
+            return `<div class="met" style="margin-top:6px"><div class="l">ICBP ${yt} vs regression-implied</div><div class="v">${prem == null ? 'n/a' : spct(prem, 0)}</div><div class="d">R² = ${fit.r2.toFixed(2)} (n=${pr.length} peers)</div></div>`
+        }
+        function renderT3() {
+            const ic = CP[0], pr = CP.slice(1), hdr = ['Mkt Cap (IDR T)', 'P/E TTM', 'P/E Fwd', 'EV/EBITDA', 'P/BV', 'ROE %', 'Op Margin %', 'Div Yield %', 'EBITDA Growth %'];
+            const keys = ['mcap', 'pe', 'pef', 'ev', 'pbv', 'roe', 'opm', 'dy', 'eg'];
+            $('t3').innerHTML = `<h2>Comparable Companies</h2><div class="box"><table><tr><th>Ticker</th>${hdr.map(h => `<th>${h}</th>`).join('')}</tr>
+ ${CP.map(p => `<tr class="${p.t === 'ICBP' ? 'hl' : ''}"><td>${p.t}</td>${keys.map(k => `<td>${p[k].toFixed(k === 'pbv' ? 2 : 1)}</td>`).join('')}</tr>`).join('')}</table></div>
+ <h3>ICBP premium / (discount) ke median peer</h3><div class="g5">${[['P/E TTM', 'pe'], ['P/E Fwd', 'pef'], ['EV/EBITDA', 'ev'], ['P/BV', 'pbv'], ['ROE', 'roe']].map(([l, k]) => {
+                const m = median(pr.map(p => p[k])), d = ic[k] / m - 1;
+                return met(l, ic[k].toFixed(1) + (k === 'roe' ? '%' : 'x'), `${spct(d, 0)} vs median ${m.toFixed(1)}`, k === 'roe' ? dcls(d) : (d <= 0 ? 'up' : 'dn'))
+            }).join('')}</div>
+ <p class="note">Multiple ICBP dihitung dari model (harga, laba FY25, nilai buku FY25); data peer bersifat sintetis.</p>
+ <h2>Valuation Maps</h2><label><input type="checkbox" ${hideU ? 'checked' : ''} onchange="hideU=this.checked;renderT3()"> Kecualikan UNVR (outlier: ROE ~80%, P/BV ~14x)</label>
+ <div class="g2"><div><div id="s1" style="height:400px"></div><div id="s1m"></div></div><div><div id="s2" style="height:400px"></div><div id="s2m"></div></div></div>
+ <p class="note">Dengan 4-5 peer, regresi hanya ilustratif; baca premi/diskon sebagai sinyal screening, bukan valuasi.</p>`;
+            const df = hideU ? CP.filter(p => p.t !== 'UNVR') : CP;
+            $('s1m').innerHTML = scatter('s1', df, 'roe', 'pbv', 'ROE (%)', 'P/BV (x)', 'ROE vs P/BV');
+            $('s2m').innerHTML = scatter('s2', df, 'eg', 'ev', 'EBITDA growth (%)', 'EV/EBITDA (x)', 'EBITDA Growth vs EV/EBITDA')
+        }
+
+        /* ========================= TAB 4: TECHNICALS & MACRO ========================= */
+        let lb = 252, mxBuilt = false; const MS = { fx: 0, wheat: 0, cpo: 0, bi: 0, infl: 0, pt: 35 };
+        function renderT4() {
+            if (!mxBuilt) {
+                $('t4').innerHTML = `<h2>Price Action & Momentum</h2><div class="seg" style="max-width:380px">${[['3M', 63], ['6M', 126], ['1Y', 252], ['2Y', 504], ['Max', 1000]].map(([l, n]) => `<button class="${n === lb ? 'on' : ''}" onclick="lb=${n};drawTech();this.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));this.classList.add('on')">${l}</button>`).join('')}</div>
+  <div id="techM" class="g5"></div><div id="tc" style="height:820px"></div>
+  <h2>Macro & Commodity Sensitivity Analyzer</h2><div class="note">Basis FY${B.yr}: bauran COGS gandum ${pct(MIX.wheat, 0)}, CPO ${pct(MIX.cpo, 0)}, bahan baku/kemasan lain ${pct(MIX.oraw, 0)}, overhead ${pct(MIX.oh, 0)}.</div>
+  <div class="g21" style="grid-template-columns:1fr 2fr"><div class="box">
+  ${[['fx', 'USD/IDR change (%)', -20, 30, 1], ['wheat', 'Global wheat price (%)', -30, 50, 1], ['cpo', 'CPO price (%)', -30, 50, 1], ['bi', 'BI rate change (bps)', -200, 200, 25], ['infl', 'Domestic inflation change (pp)', -2, 4, .25], ['pt', 'Price pass-through (%)', 0, 100, 5]]
+                        .map(([k, l, lo, hi, st]) => `<div class="sl"><label>${l}<span id="mv_${k}">${MS[k]}</span></label><input type="range" min="${lo}" max="${hi}" step="${st}" value="${MS[k]}" oninput="MS['${k}']=+this.value;$('mv_${k}').textContent=this.value;drawMacro()"></div>`).join('')}</div>
+  <div><div id="mxM" class="g4"></div><div id="mw" style="height:340px"></div></div></div>
+  <div id="mt" style="height:340px"></div><p class="note">Model memakai asumsi eksplisit bauran biaya dan pass-through (bukan korelasi historis, karena seri makro bersifat sintetis).</p>`; mxBuilt = true
+            }
+            drawTech(); drawMacro()
+        }
+        function drawTech() {
+            const n = lb, s = PX.date.length - n, sl = a => a.slice(s), i = PX.close.length - 1, last = PX.close[i];
+            const hi52 = Math.max(...PX.high.slice(-252)), lo52 = Math.min(...PX.low.slice(-252)), rs = PX.rsi[i];
+            $('techM').innerHTML = met('Last close', fmt(last), spct(last / PX.close[i - 1] - 1, 2), dcls(last - PX.close[i - 1])) + met('RSI (14)', rs.toFixed(0), rs > 70 ? 'Overbought' : rs < 30 ? 'Oversold' : 'Neutral')
+                + met('vs MA200', spct(last / PX.ma200[i] - 1), PX.ma50[i] > PX.ma200[i] ? 'MA50 > MA200' : 'MA50 < MA200') + met('Realised vol (30d, ann.)', PX.vol[i].toFixed(1) + '%')
+                + met('52W range position', pct((last - lo52) / (hi52 - lo52), 0), `${fmt(lo52)} - ${fmt(hi52)}`);
+            const x = sl(PX.date), vc = sl(PX.close).map((c, k) => c >= sl(PX.open)[k] ? C.teal : C.red);
+            Plotly.react('tc', [
+                { type: 'candlestick', x, open: sl(PX.open), high: sl(PX.high), low: sl(PX.low), close: sl(PX.close), name: 'ICBP', increasing: { line: { color: C.teal }, fillcolor: C.teal }, decreasing: { line: { color: C.red }, fillcolor: C.red } },
+                { x, y: sl(PX.ma50), name: 'MA50', mode: 'lines', line: { color: C.amber, width: 1.6 } }, { x, y: sl(PX.ma200), name: 'MA200', mode: 'lines', line: { color: C.blue, width: 1.6 } },
+                { type: 'bar', x, y: sl(PX.volume), name: 'Volume', marker: { color: vc }, opacity: .7, yaxis: 'y2' },
+                { x, y: sl(PX.rsi), name: 'RSI (14)', mode: 'lines', line: { color: '#8B5CF6', width: 1.6 }, yaxis: 'y3' },
+                { x, y: sl(PX.vol), name: 'Ann. vol 30d (%)', mode: 'lines', fill: 'tozeroy', line: { color: C.amber, width: 1.4 }, fillcolor: 'rgba(245,158,11,.15)', yaxis: 'y4' }],
+                L({
+                    title: T('ICBP.JK - Price, Volume, RSI and Rolling Volatility'), xaxis: { rangeslider: { visible: false }, rangebreaks: [{ bounds: ['sat', 'mon'] }], anchor: 'y4' },
+                    yaxis: { domain: [.5, 1] }, yaxis2: { domain: [.36, .48], gridcolor: '#E2E8F0' }, yaxis3: { domain: [.18, .34], range: [0, 100], gridcolor: '#E2E8F0' }, yaxis4: { domain: [0, .16], gridcolor: '#E2E8F0' },
+                    shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y3', y0: 70, y1: 70, line: { color: C.red, dash: 'dot' } }, { type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y3', y0: 30, y1: 30, line: { color: C.teal, dash: 'dot' } }]
+                }),
+                { displayModeBar: false, responsive: true })
+        }
+        function drawMacro() {
+            const o = mx({ fx: MS.fx / 100, wheat: MS.wheat / 100, cpo: MS.cpo / 100, bi: MS.bi, infl: MS.infl, pt: MS.pt / 100 });
+            $('mxM').innerHTML = met('COGS change', spct(o.dcogs)) + met('Gross margin', pct(o.gmN), ((o.gmN - MB.gm) * 1e4 >= 0 ? '+' : '') + ((o.gmN - MB.gm) * 1e4).toFixed(0) + ' bps', dcls(o.gmN - MB.gm))
+                + met('EBIT change', spct(o.dEbit), '', dcls(o.dEbit)) + met('EPS (IDR)', fmt(o.epsN), spct(o.depsP), dcls(o.depsP));
+            const lab = ['Base EPS', ...Object.keys(o.comp), 'Pro forma EPS'], val = [MB.eps, ...Object.values(o.comp), o.epsN];
+            P('mw', [{ type: 'waterfall', x: lab, y: val, measure: ['absolute', ...Object.keys(o.comp).map(() => 'relative'), 'total'], increasing: { marker: { color: C.teal } }, decreasing: { marker: { color: C.red } }, totals: { marker: { color: C.blue } }, connector: { line: { color: '#475569' } } }],
+                { title: T('EPS Bridge: Base to Pro Forma (IDR/share)'), hovermode: 'closest' });
+            const fac = [['USD/IDR ±10%', 'fx', .10], ['Wheat ±20%', 'wheat', .20], ['CPO ±20%', 'cpo', .20], ['BI rate ±100bp', 'bi', 100], ['Inflation ±1pp', 'infl', 1]]
+                .map(([l, k, z]) => [l, mx({ [k]: z, pt: MS.pt / 100 }).depsP * 100, mx({ [k]: -z, pt: MS.pt / 100 }).depsP * 100]).sort((a, b) => Math.max(Math.abs(a[1]), Math.abs(a[2])) - Math.max(Math.abs(b[1]), Math.abs(b[2])));
+            P('mt', [{ type: 'bar', orientation: 'h', y: fac.map(f => f[0]), x: fac.map(f => f[1]), name: 'Shock up', marker: { color: C.red } }, { type: 'bar', orientation: 'h', y: fac.map(f => f[0]), x: fac.map(f => f[2]), name: 'Shock down', marker: { color: C.teal } }],
+                { title: T('Tornado: EPS Sensitivity by Factor (%)'), barmode: 'relative', hovermode: 'closest' })
+        }
+
+        /* ========================= TAB 5: VALIDATION & DOCS ========================= */
+        function research() {
+            const r = D[scen], c = CP[0], pr = CP.slice(1);
+            const rows = SC.map(s => `| ${s} | ${pct(D[s].a.rev_cagr)} | ${pct(D[s].a.ebit_margin)} | ${pct(D[s].a.wacc, 2)} | ${pct(D[s].a.tg)} | ${fmt(D[s].price)} | ${spct(D[s].price / LAST - 1)} |`).join('\n');
+            return `# PT Indofood CBP Sukses Makmur Tbk (ICBP.JK) - Equity Research Note
+**Date:** 10 November 2026 | **Rating:** ${X.rt} | **Target Price:** IDR ${fmt(X.tp)} | **Last Close:** IDR ${fmt(LAST)} | **Upside:** ${spct(X.up)}
+
+> Illustrative note built on SYNTHETIC data. Not investment advice.
+
+## Recommendation (${scen} case)
+ICBP rated **${X.rt}**, DCF-derived target price IDR ${fmt(X.tp)}. Shares trade at ${c.pef.toFixed(1)}x forward P/E and ${c.ev.toFixed(1)}x EV/EBITDA vs peer medians of ${median(pr.map(p => p.pef)).toFixed(1)}x and ${median(pr.map(p => p.ev)).toFixed(1)}x.
+
+## Investment Thesis
+1. **Moat:** category-leading instant-noodle brands, national distribution, procurement scale.
+2. **Pinehill:** Middle East & Africa = ${pct(MEA[K])} of sales (from ${pct(MEA[0])} in FY${FY[0]}).
+3. **Returns:** EBIT margin ${pct(F.em[K])}; ROIC ${pct(F.roic[K])} vs WACC ${pct(r.a.wacc, 2)}.
+4. **Balance sheet:** net debt/EBITDA ${F.ndE[K].toFixed(2)}x; interest cover ${F.icov[K].toFixed(1)}x.
+
+## Valuation Scenarios
+| Scenario | Rev CAGR | Target EBIT margin | WACC | Terminal g | Value/share (IDR) | Upside |
+|---|---|---|---|---|---|---|
+${rows}
+
+Active-case EV IDR ${fmt(r.ev)}bn; terminal value ${pct(r.tvShare, 0)} of EV (implied TV/EBITDA ${r.tvE.toFixed(1)}x).
+
+## Key Risks
+- **FX / USD exposure:** unhedged USD debt and USD-linked wheat/packaging.
+- **Commodity inflation:** wheat and CPO are the largest COGS lines; pass-through lags 2-3 quarters.
+- **Consumer purchasing power:** volume elasticity to inflation.
+- **Competition and trade-down.**
+`}
+        const README = `# ICBP Equity Research & Valuation Terminal (HTML edition)
+
+Single-file, client-side dashboard for PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP): fundamentals, 3-scenario DCF,
+peer comps, technicals and macro sensitivities. Data is synthetic. Not investment advice.
+
+## Run
+Open index.html in a browser (internet needed for the Plotly CDN). Host on GitHub Pages by pushing the file to a repo
+and enabling Pages (Settings > Pages > Deploy from branch).
+
+## Companion
+The Streamlit edition (app.py) adds an SQLite pipeline, quarterly LTM view, SQL inspector and correlation matrix.
+`;
+        function renderT5() {
+            const checks = []; const add = (n, ok, d) => checks.push([n, ok, d]);
+            const bs = Math.max(...F.ta.map((t, i) => Math.abs(t - (F.cash[i] + F.rec[i] + F.inv[i] + F.oca[i] + F.ppe[i] + F.gw[i] + F.onca[i])))),
+                bs2 = Math.max(...F.ta.map((t, i) => Math.abs(t - F.liab[i] - F.eq[i])));
+            add('Balance sheet: Assets = Liabilities + Equity', bs < .5 && bs2 < .5, `max |diff| = ${Math.max(bs, bs2).toFixed(4)} bn`);
+            const cd = Math.max(...[1, 2, 3, 4].map(i => Math.abs(F.cash[i] - F.cash[i - 1] - F.netchg[i])));
+            add('Cash roll-forward ties to cash-flow statement', cd < .6, `max |diff| = ${cd.toFixed(4)} bn`);
+            const idn = Math.max(...F.rev.map((r, i) => Math.abs(r - F.cogs[i] - F.gp[i])), ...F.ebit.map((e, i) => Math.abs(e + F.da[i] - F.ebitda[i])), ...F.pretax.map((p, i) => Math.abs(p - F.tax[i] - F.ni[i])));
+            add('Income statement identities (GP, EBITDA, NI)', idn < .3, `max gap = ${idn.toFixed(4)} bn`);
+            add('FCF = CFO - CapEx', Math.max(...F.cfo.map((c, i) => Math.abs(c - F.capex[i] - F.fcf[i]))) < .2, 'identity');
+            const bad = Object.values(F).flat().filter(v => typeof v === 'number' && !isFinite(v)).length;
+            add('Missing-value assertion (financial arrays)', bad === 0, `non-finite values: ${bad}`);
+            SC.forEach(s => {
+                const r = D[s], a = r.a; let pv = 0; r.u.forEach((u, i) => pv += u / (1 + a.wacc) ** (i + 1));
+                const tv = r.u[4] * (1 + a.tg) / Math.max(a.wacc - a.tg, .005), ev = pv + tv / (1 + a.wacc) ** 5, px = (ev - B.nd - B.nci) / B.shB;
+                add('DCF reconciliation - ' + s, Math.abs(ev - r.ev) < 1e-6 * r.ev && Math.abs(px - r.price) < 1e-6 * r.price, `EV ${fmt(r.ev)} vs ${fmt(ev)}; price ${fmt(r.price)} vs ${fmt(px)}`)
+            });
+            const sg = sensGrid(D[scen].a), ctr = sg.z[2][3]; add('Sensitivity heatmap centre = active DCF price', Math.abs(ctr - D[scen].price) < 1e-6 * D[scen].price, `${fmt(ctr)} vs ${fmt(D[scen].price)}`);
+            add('Segment & geographic mix sum to 100%', FY.every((_, i) => Math.abs(SEGN.reduce((a, s) => a + SEGS[s][i], 0) - 1) < 1e-9), 'per fiscal year');
+            add('Price OHLCV integrity (H>=O,C; L<=O,C; vol>0)', PX.close.every((c, i) => PX.high[i] >= Math.max(PX.open[i], c) && PX.low[i] <= Math.min(PX.open[i], c) && PX.volume[i] > 0), `${PX.close.length} daily bars`);
+            add('Peer table completeness', PEERS.length === 5, PEERS.length + ' peers loaded');
+            const pass = checks.filter(c => c[1]).length, note = research();
+            $('t5').innerHTML = `<h2>Calculation Audit & Validation Checks</h2><div class="box" style="border-color:${pass === checks.length ? C.teal : C.red}">${pass} / ${checks.length} checks passed</div>
+ <div class="box" style="margin-top:8px"><table><tr><th>Check</th><th>Status</th><th>Detail</th></tr>${checks.map(c => `<tr><td>${c[0]}</td><td class="${c[1] ? 'ok' : 'bad'}">${c[1] ? '✅ PASS' : '❌ FAIL'}</td><td>${c[2]}</td></tr>`).join('')}</table></div>
+ <h2>Exportable Research Note</h2><div class="g2"><div class="box"><b>Markdown (copyable)</b><pre id="noteTxt"></pre></div><div class="box"><b>README.md template</b><pre id="readmeTxt"></pre></div></div>
+ <p><button class="btn" onclick="download('ICBP_research_note.md',research(),'text/markdown')">⬇ Download research note (.md)</button>
+ <button class="btn" onclick="download('README.md',README,'text/markdown')">⬇ Download README.md</button>
+ <button class="btn" onclick="navigator.clipboard.writeText(research())">Copy note</button></p>`;
+            $('noteTxt').textContent = note; $('readmeTxt').textContent = README
+        }
+
+        /* ========================= ROUTER ========================= */
+        const NAMES = ['📋 Executive Summary', '📊 Fundamentals', '🧮 DCF Valuation', '⚖️ Peer Comps', '📉 Technicals & Macro', '🧾 Data & Docs'];
+        const RENDER = [renderT0, renderT1, renderT2, renderT3, renderT4, renderT5];
+        function showTab(i) {
+            tab = i; NAMES.forEach((_, k) => $('t' + k).hidden = k !== i);
+            $('tabs').innerHTML = NAMES.map((n, k) => `<button class="${k === i ? 'on' : ''}" onclick="showTab(${k})">${n}</button>`).join(''); RENDER[i]()
+        }
+        function update() { recompute(); renderSide(); RENDER[tab]() }
+        recompute(); renderSide(); showTab(0);
+    </script>
+</body>
+
+</html>
