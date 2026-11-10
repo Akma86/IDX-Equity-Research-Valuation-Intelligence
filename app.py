@@ -38,12 +38,15 @@ PALETTE = [C_TEAL, C_BLUE, C_AMBER, C_RED, C_PURPLE, C_SLATE]
 st.markdown(
     """
     <style>
-    /* Global Light Mode Surface & Typography (Mirrors contohdesain.html in Light Mode) */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+    /* Global Light Mode Surface & Typography */
     html, body, [data-testid="stAppViewContainer"], .stApp {
         background-color: #F8FAFC !important;
         color: #0F172A !important;
-        font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif !important;
-        font-size: 14px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-size: 13.5px;
+        -webkit-font-smoothing: antialiased;
     }
     [data-testid="stHeader"] {
         background-color: rgba(248, 250, 252, 0.85) !important;
@@ -58,140 +61,218 @@ st.markdown(
     .block-container {
         padding-top: 1.0rem !important;
         padding-bottom: 2.2rem !important;
-        max-width: 1550px !important;
+        max-width: 1560px !important;
     }
     h1, h2, h3, h4 {
         color: #0F172A !important;
-        letter-spacing: -0.01em;
+        letter-spacing: -0.02em;
         margin: 0.4em 0;
         font-weight: 700;
     }
-    h1 { font-size: 1.55rem !important; }
-    h2 { font-size: 1.15rem !important; margin-top: 20px !important; }
-    h3 { font-size: 1.0rem !important; }
+    h1 { font-size: 1.48rem !important; }
+    h2 { font-size: 1.12rem !important; margin-top: 20px !important; margin-bottom: 8px !important; }
+    h3 { font-size: 0.96rem !important; }
 
     /* Streamlit Native Metric Override (Light Mode) */
     [data-testid="stMetric"] {
-        background: linear-gradient(145deg, #FFFFFF, #F8FAFC);
+        background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 12px 14px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+        transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
     }
     [data-testid="stMetricLabel"] {
         color: #64748B !important;
-        font-size: 0.72rem !important;
+        font-size: 0.70rem !important;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
         font-weight: 600 !important;
     }
     [data-testid="stMetricValue"] {
         color: #0F172A !important;
+        font-family: 'JetBrains Mono', monospace !important;
         font-size: 1.3rem !important;
         font-weight: 700 !important;
+        font-variant-numeric: tabular-nums;
     }
 
-    /* Custom HTML Metric Cards (.met from contohdesain.html) */
+    /* Custom HTML Metric Cards (.met) */
     .met {
-        background: linear-gradient(145deg, #FFFFFF, #F8FAFC);
+        background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 12px 14px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         height: 100%;
+        transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .met:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
+        border-color: #CBD5E1;
     }
     .met .l {
         color: #64748B;
-        font-size: 0.70rem;
+        font-size: 0.68rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
     }
     .met .v {
         color: #0F172A;
+        font-family: 'JetBrains Mono', monospace;
         font-size: 1.28rem;
         font-weight: 700;
         margin-top: 2px;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
     }
     .met .d {
-        font-size: 0.78rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.76rem;
         color: #64748B;
-        font-weight: 500;
+        font-weight: 600;
         margin-top: 2px;
+        display: flex;
+        align-items: center;
+        gap: 3px;
     }
     .up { color: #0D9488 !important; font-weight: 600 !important; }
     .dn { color: #DC2626 !important; font-weight: 600 !important; }
 
-    /* Responsive CSS Grids (.g2, .g3, .g4, .g5, .g6, .g21 from contohdesain.html) */
+    /* Top Institutional Header Ribbon */
+    .term-ribbon {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #E2E8F0;
+        margin-bottom: 14px;
+    }
+    .term-meta {
+        font-size: 0.75rem;
+        color: #64748B;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
+    .term-meta b { color: #334155; }
+    .mkt-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #F1F5F9;
+        border: 1px solid #E2E8F0;
+        border-radius: 20px;
+        padding: 4px 10px;
+        font-size: 0.70rem;
+        font-weight: 600;
+        color: #334155;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .pulse-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #10B981;
+    }
+
+    /* Responsive CSS Grids */
     .g2  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
     .g3  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
     .g4  { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
     .g5  { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
     .g6  { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 12px; }
     .g21 { display: grid; grid-template-columns: 2.3fr 1fr; gap: 16px; margin-bottom: 14px; }
-    @media (max-width: 1000px) {
+    @media (max-width: 1024px) {
         .g2, .g3, .g4, .g5, .g6, .g21 { grid-template-columns: 1fr 1fr; }
     }
+    @media (max-width: 640px) {
+        .g2, .g3, .g4, .g5, .g6, .g21 { grid-template-columns: 1fr; }
+    }
 
-    /* Styled Navigation Tabs (.tabs from contohdesain.html) */
+    /* Styled Navigation Tabs */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
+        gap: 6px;
         border-bottom: 1px solid #E2E8F0;
         background-color: transparent;
-        padding: 0;
+        padding: 0 0 4px 0;
         margin-bottom: 14px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #FFFFFF;
+        background-color: #F8FAFC;
         border: 1px solid #E2E8F0;
-        border-bottom: none;
+        border-radius: 6px;
         color: #64748B;
-        padding: 9px 16px;
-        border-radius: 8px 8px 0 0;
-        font-size: 0.9rem;
+        padding: 8px 14px;
+        font-size: 0.84rem;
         font-weight: 600;
         height: auto;
+        transition: all 150ms ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #F1F5F9;
+        color: #0F172A;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #F0FDFA !important;
-        color: #0D9488 !important;
-        border-color: #CBD5E1 !important;
-        border-bottom: 2px solid #0D9488 !important;
+        background-color: #0D9488 !important;
+        color: #FFFFFF !important;
+        border-color: #0D9488 !important;
+        box-shadow: 0 1px 3px rgba(13, 148, 136, 0.3) !important;
     }
 
-    /* Rating Badges (.badge, .BUY, .HOLD, .SELL from contohdesain.html) */
+    /* Rating Badges */
     .badge {
-        display: inline-block;
-        padding: 4px 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 14px;
         border-radius: 6px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        font-size: 1.0rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        font-size: 0.95rem;
     }
     .BUY {
-        background: rgba(13, 148, 136, 0.12);
-        color: #0D9488;
-        border: 1px solid #0D9488;
+        background: #CCFBF1;
+        color: #0F766E;
+        border: 1px solid #A7F3D0;
     }
     .HOLD {
-        background: rgba(217, 119, 6, 0.12);
-        color: #D97706;
-        border: 1px solid #D97706;
+        background: #FEF3C7;
+        color: #B45309;
+        border: 1px solid #FDE68A;
     }
     .SELL {
-        background: rgba(220, 38, 38, 0.12);
-        color: #DC2626;
-        border: 1px solid #DC2626;
+        background: #FEE2E2;
+        color: #B91C1C;
+        border: 1px solid #FECACA;
     }
 
-    /* Risk Cards (.risk from contohdesain.html) */
+    /* Risk Cards */
     .risk {
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 14px 16px;
         min-height: 190px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 160ms ease;
+    }
+    .risk:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.08);
     }
     .risk .h {
         display: flex;
@@ -200,44 +281,52 @@ st.markdown(
         font-weight: 700;
         color: #0F172A;
         margin-bottom: 6px;
+        font-size: 0.92rem;
     }
     .risk .t {
-        font-size: 0.70rem;
-        padding: 2px 8px;
+        font-size: 0.68rem;
+        font-family: 'JetBrains Mono', monospace;
+        padding: 2px 7px;
         border-radius: 4px;
         font-weight: 700;
+        letter-spacing: 0.04em;
     }
     .risk p {
-        font-size: 0.84rem;
+        font-size: 0.82rem;
         color: #334155;
-        margin: 5px 0;
+        margin: 4px 0;
         line-height: 1.45;
     }
     .risk .i {
-        color: #D97706;
+        color: #B45309;
         font-weight: 600;
+        background: #FFFBEB;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border-left: 2px solid #D97706;
     }
 
-    /* Container Boxes & Institutional Tables (.box & table from contohdesain.html) */
+    /* Container Boxes & Institutional Tables */
     .box {
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 12px 14px;
         overflow: auto;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         margin-bottom: 10px;
     }
     .note {
         color: #64748B;
-        font-size: 0.79rem;
+        font-size: 0.76rem;
+        line-height: 1.4;
         margin-top: 4px;
         margin-bottom: 8px;
     }
     table.term-tbl {
         border-collapse: collapse;
         width: 100%;
-        font-size: 0.83rem;
+        font-size: 0.82rem;
         background: #FFFFFF;
     }
     table.term-tbl th, table.term-tbl td {
@@ -246,21 +335,31 @@ st.markdown(
         text-align: right;
         white-space: nowrap;
         color: #1E293B;
+        font-variant-numeric: tabular-nums;
+        font-family: 'JetBrains Mono', monospace;
     }
     table.term-tbl th:first-child, table.term-tbl td:first-child {
         text-align: left;
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
     }
     table.term-tbl th {
         color: #475569;
-        font-weight: 600;
+        font-weight: 700;
+        font-size: 0.70rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
         background: #F1F5F9;
+        font-family: 'Inter', sans-serif;
     }
     table.term-tbl tr.hl td {
-        background: rgba(13, 148, 136, 0.10);
+        background: #F0FDF4;
         font-weight: 700;
-        color: #0F172A;
+        color: #047857;
+        border-top: 1px solid #BBF7D0;
+        border-bottom: 1px solid #BBF7D0;
     }
-    table.term-tbl tr:hover td {
+    table.term-tbl tbody tr:hover td {
         background-color: #F8FAFC;
     }
     .ok  { color: #0D9488; font-weight: 700; }
@@ -335,18 +434,25 @@ def risk_card_html(title: str, sev: str, body: str, imp: str, mit: str) -> str:
 
 
 def svg_spark(arr: list) -> str:
-    """Generates an inline SVG polyline sparkline matching contohdesain.html."""
-    w, h = 80, 22
+    """Generates an inline SVG gradient sparkline with endpoint dot matching contohdesain.html."""
+    w, h = 84, 22
     mn, mx_v = min(arr), max(arr)
     rng_v = (mx_v - mn) if (mx_v - mn) != 0 else 1.0
     n = max(len(arr) - 1, 1)
-    pts = " ".join(
-        f"{(i / n * w):.1f},{(h - 2 - ((v - mn) / rng_v) * (h - 4)):.1f}"
+    pts_data = [
+        (i / n * (w - 8) + 4, h - 3 - ((v - mn) / rng_v) * (h - 6))
         for i, v in enumerate(arr)
-    )
+    ]
+    p_str = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts_data)
+    last_x, last_y = pts_data[-1]
+    is_up = arr[-1] >= arr[0]
+    color = C_TEAL if is_up else C_RED
+    poly_fill = f"{pts_data[0][0]:.1f},{h} {p_str} {last_x:.1f},{h}"
     return (
-        f'<svg width="{w}" height="{h}">'
-        f'<polyline points="{pts}" fill="none" stroke="{C_TEAL}" stroke-width="1.8"/>'
+        f'<svg width="{w}" height="{h}" style="overflow:visible">'
+        f'<polygon points="{poly_fill}" fill="{color}" fill-opacity="0.14"/>'
+        f'<polyline points="{p_str}" fill="none" stroke="{color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
+        f'<circle cx="{last_x:.1f}" cy="{last_y:.1f}" r="2.2" fill="{color}" stroke="#FFFFFF" stroke-width="1"/>'
         f'</svg>'
     )
 
@@ -355,17 +461,18 @@ def apply_light_plotly(fig: go.Figure, title_text: str = "", height: int = 360, 
     """Applies a clean, high-contrast Institutional Light Mode layout to Plotly charts."""
     fig.update_layout(
         template="plotly_white",
-        title=dict(text=title_text, font=dict(size=14, color="#0F172A", family="Inter, Segoe UI, sans-serif")),
+        title=dict(text=title_text, font=dict(size=13, color="#0F172A", family="Inter, -apple-system, sans-serif")),
         paper_bgcolor="#FFFFFF",
-        plot_bgcolor="#F8FAFC",
-        font=dict(color="#1E293B", size=12, family="Inter, Segoe UI, sans-serif"),
+        plot_bgcolor="#FFFFFF",
+        font=dict(color="#334155", size=11.5, family="Inter, -apple-system, sans-serif"),
         height=height,
-        margin=dict(l=52, r=28, t=52, b=38),
-        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="left", x=0, bgcolor="rgba(255,255,255,0)"),
+        margin=dict(l=52, r=28, t=48, b=38),
+        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="left", x=0, bgcolor="rgba(255,255,255,0)", font=dict(size=11)),
         hovermode=hovermode,
+        hoverlabel=dict(bgcolor="#0F172A", font=dict(color="#F8FAFC", family="JetBrains Mono, monospace", size=11.5), bordercolor="#0F172A"),
     )
-    fig.update_xaxes(gridcolor="#E2E8F0", linecolor="#CBD5E1", zeroline=False)
-    fig.update_yaxes(gridcolor="#E2E8F0", linecolor="#CBD5E1", zeroline=False)
+    fig.update_xaxes(gridcolor="#F1F5F9", linecolor="#E2E8F0", zeroline=False)
+    fig.update_yaxes(gridcolor="#F1F5F9", linecolor="#E2E8F0", zeroline=False)
     return fig
 
 
@@ -937,8 +1044,18 @@ def render_tabs():
 
     # Sidebar Controls (Mirrors #side in contohdesain.html)
     with st.sidebar:
-        st.markdown("### ICBP.JK")
-        st.markdown('<div class="note">PT Indofood CBP Sukses Makmur Tbk</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid #E2E8F0;margin-bottom:12px;">
+                <div style="background:#0F766E;color:#FFFFFF;font-family:'JetBrains Mono',monospace;font-size:0.85rem;font-weight:700;padding:5px 8px;border-radius:6px;letter-spacing:0.04em;">ICBP</div>
+                <div>
+                    <div style="font-size:0.94rem;font-weight:700;color:#0F172A;line-height:1.2;">PT Indofood CBP</div>
+                    <div style="font-size:0.72rem;color:#64748B;">Sukses Makmur Tbk (IDX: ICBP.JK)</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         period_mode = st.radio(
             "Reporting Period View",
@@ -1016,40 +1133,60 @@ def render_tabs():
         px_df = db["px"]
         chg_dd = (LAST / float(px_df["close"].iloc[-2])) - 1.0
         st.markdown(
-            f'<div style="margin:10px 0">{met_card("Share Price (IDR)", fmt(LAST), spct(chg_dd, 2) + " d/d", dcls(chg_dd))}</div>'
-            f'<div class="g2">{met_card("Target Price", fmt(tp_rounded))}{met_card("Upside", spct(up_ratio), "", dcls(up_ratio))}</div>'
-            f'<div style="margin:10px 0"><span class="badge {rt_badge}">{rt_badge}</span> <span class="note">&nbsp;{scen} case DCF</span></div>'
-            f'<hr style="border-color:#E2E8F0">',
+            f'<div style="margin:8px 0">{met_card("Share Price (IDR)", fmt(LAST), spct(chg_dd, 2) + " d/d", dcls(chg_dd))}</div>'
+            f'<div class="g2">{met_card("Target Price", "IDR " + fmt(tp_rounded))}{met_card("Implied Upside", spct(up_ratio), "", dcls(up_ratio))}</div>'
+            f'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;margin:10px 0;">'
+            f'<span class="badge {rt_badge}">{rt_badge}</span>'
+            f'<span class="note" style="font-weight:600;color:#0F766E;">DCF {scen} Case</span>'
+            f'</div>'
+            f'<hr style="border-color:#E2E8F0;margin:12px 0;">',
             unsafe_allow_html=True,
         )
         df_exp = df_qtr if period_mode == "Quarterly (8Q)" else df_ann
         st.download_button(
-            "⬇ Export cleaned dataset (CSV)",
+            "⬇ Export Cleaned Dataset (CSV)",
             data=df_exp.to_csv(index=False).encode("utf-8"),
             file_name="icbp_financials_clean.csv",
             mime="text/csv",
             use_container_width=True,
         )
         st.markdown(
-            '<p class="note">Powered by an in-memory SQLite3 pipeline with 5Y Annual & 8Q Quarterly views.</p>',
+            '<p class="note" style="font-size:0.72rem;line-height:1.4;">Institutional Research Terminal powered by an in-memory SQLite3 view pipeline with 5Y Annual & 8Q Quarterly reconciliation.</p>',
             unsafe_allow_html=True,
         )
 
-    # Top Title & Note
-    st.markdown("# 📈 ICBP Equity Research Terminal")
+    # Top Institutional Header Ribbon
     st.markdown(
-        '<div class="note">PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP.JK) | Light Mode Institutional Edition | Price as of 10 Nov 2026 | Not investment advice</div>',
+        """
+        <div class="term-ribbon">
+            <div>
+                <h1 style="margin:0 0 4px 0;font-size:1.45rem;">ICBP Equity Research &amp; Valuation Terminal</h1>
+                <div class="term-meta">
+                    <span><b>Entity:</b> PT Indofood CBP Sukses Makmur Tbk</span>
+                    <span style="color:#CBD5E1">•</span>
+                    <span><b>Exchange:</b> IDX: ICBP.JK</span>
+                    <span style="color:#CBD5E1">•</span>
+                    <span><b>Sector:</b> Consumer Staples / Food &amp; Beverage</span>
+                    <span style="color:#CBD5E1">•</span>
+                    <span><b>Model As Of:</b> 10 Nov 2026</span>
+                </div>
+            </div>
+            <div class="mkt-pill">
+                <span class="pulse-dot"></span> REGULAR SESSION (CLOSED)
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
     tabs = st.tabs(
         [
-            "📋 Executive Summary",
-            "📊 Fundamentals",
-            "🧮 DCF Valuation",
-            "⚖️ Peer Comps",
-            "📉 Technicals & Macro",
-            "🧾 Data & Docs",
+            "Executive Summary",
+            "5Y Fundamentals",
+            "DCF Valuation Engine",
+            "Peer Valuation",
+            "Technicals & Macro",
+            "Audit Suite & Docs",
         ]
     )
 
