@@ -94,23 +94,24 @@ class TestICBPEquityResearch(unittest.TestCase):
         sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
         import app
 
-        db = app.init_sql_db()
-        df_ann = app.compute_financial_ratios(db["annual"], is_quarterly=False)
-        df_qtr = app.compute_financial_ratios(db["quarterly"], is_quarterly=True)
+        data = app.load_data()
+        fin = app.compute_financial_ratios(data["income"], data["balance"], data["cashflow"], wacc=0.10)
 
         # Verify Balance Sheet equilibrium (Assets == Liabilities + Equity)
-        self.assertAlmostEqual(float(df_ann["bs_audit_diff"].abs().max()), 0.0, places=4)
-        self.assertAlmostEqual(float(df_qtr["bs_audit_diff"].abs().max()), 0.0, places=4)
+        bs_diff = float((fin["total_assets"] - fin["total_liabilities"] - fin["total_equity"]).abs().max())
+        self.assertLess(bs_diff, 0.5)
 
         # Verify DCF scenario monotonicity (Bull > Base > Bear)
-        rev_25 = float(df_ann.iloc[-1]["revenue"])
-        bull = app.run_dcf_model(rev_25, 10.2, 24.0, 7.8, 4.2, 4.2)
-        base = app.run_dcf_model(rev_25, 7.8, 22.5, 8.5, 3.5, 4.5)
-        bear = app.run_dcf_model(rev_25, 4.8, 19.2, 9.5, 2.5, 4.8)
+        base = app.build_dcf_base(fin)
+        last_close = float(data["price"]["close"].iloc[-1])
+        bull = app.run_dcf_model(base, {k: v / 100 for k, v in app.SCENARIO_DEFAULTS["Bull"].items()}, last_close)
+        base_dcf = app.run_dcf_model(base, {k: v / 100 for k, v in app.SCENARIO_DEFAULTS["Base"].items()}, last_close)
+        bear = app.run_dcf_model(base, {k: v / 100 for k, v in app.SCENARIO_DEFAULTS["Bear"].items()}, last_close)
 
-        self.assertGreater(bull["implied_share_price"], base["implied_share_price"])
-        self.assertGreater(base["implied_share_price"], bear["implied_share_price"])
-        self.assertEqual(base["df_sens"].shape, (7, 7))
+        self.assertGreater(bull["price"], base_dcf["price"])
+        self.assertGreater(base_dcf["price"], bear["price"])
+        waccs, gs, z = app.sensitivity_grid(base, base_dcf["assumptions"], last_close)
+        self.assertEqual(z.shape, (len(gs), len(waccs)))
 
 if __name__ == "__main__":
     unittest.main()

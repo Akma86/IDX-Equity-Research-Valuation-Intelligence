@@ -1,22 +1,25 @@
 """
-app.py
-Institutional Equity Research & Valuation Terminal: PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP)
-Architecture: Self-Contained Python + SQLite3 Financial Pipeline, Dynamic Multi-Scenario DCF Engine,
-Relative Peer Valuation Map, Technical Momentum & Macro Sensitivity Suite, and Automated Audit Checks.
+ICBP Equity Research & Valuation Terminal
+=========================================
+PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP.JK)
+
+Self-contained Streamlit dashboard. All data is SYNTHETIC (calibrated to ICBP's
+approximate scale) and generated inside `init_sql_db()` into an in-memory SQLite
+database. Raw tables hold IDR millions; SQL views clean/convert to IDR billions and
+derive subtotals; pandas then computes ratios, DCF, technicals and macro sensitivities.
+
+Run:  streamlit run app.py
 """
+from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import streamlit as st
+from plotly.subplots import make_subplots
 
-# ==============================================================================
-# 1. PAGE CONFIGURATION & INSTITUTIONAL STYLING (BLOOMBERG / FACTSET AESTHETIC)
-# ==============================================================================
 st.set_page_config(
     page_title="ICBP Equity Research Terminal",
     page_icon="📈",
@@ -24,2032 +27,1416 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Color Palette Constants
-COLOR_TEAL = "#00F5D4"
-COLOR_BLUE = "#3B82F6"
-COLOR_AMBER = "#F59E0B"
-COLOR_RED = "#EF4444"
-COLOR_PURPLE = "#8B5CF6"
-COLOR_SLATE = "#94A3B8"
-PALETTE_MAIN = [COLOR_TEAL, COLOR_BLUE, COLOR_AMBER, COLOR_RED, COLOR_PURPLE, "#10B981"]
+# =============================================================================
+# 0. CONSTANTS & STYLING
+# =============================================================================
+TICKER = "ICBP.JK"
+COMPANY = "PT Indofood CBP Sukses Makmur Tbk"
+AS_OF = pd.Timestamp("2026-11-10")
+FISCAL_YEARS = [2021, 2022, 2023, 2024, 2025]
+SHARES_MN = 11_661.9          # millions of shares
+TAX_RATE = 0.22
+MINORITY_SHARE = 0.14         # share of consolidated NI attributable to NCI
+NCI_BOOK_PCT = 0.12           # NCI as % of total equity (book)
+NCI_FV_MULT = 1.5             # NCI valued at 1.5x book in the EV->equity bridge
+PAYOUT = 0.45
+LAST_CLOSE_TARGET = 9_150.0
 
-st.markdown(
-    """
-    <style>
-    /* Compact Main Container */
-    .block-container {
-        padding-top: 1.2rem !important;
-        padding-bottom: 2rem !important;
-        max-width: 98% !important;
-    }
-    /* Bloomberg/FactSet Metric Cards */
-    [data-testid="stMetric"] {
-        background: linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.88));
-        border: 1px solid rgba(59, 130, 246, 0.28);
-        border-left: 4px solid #00F5D4;
-        border-radius: 10px;
-        padding: 14px 16px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
-    }
-    [data-testid="stMetricLabel"] {
-        font-size: 0.78rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #94A3B8 !important;
-    }
-    [data-testid="stMetricValue"] {
-        font-size: 1.45rem !important;
-        font-weight: 800 !important;
-        color: #F8FAFC !important;
-    }
-    /* Styled Navigation Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(15, 23, 42, 0.65);
-        padding: 6px 10px;
-        border-radius: 10px;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 42px;
-        border-radius: 8px;
-        padding: 0 16px;
-        font-weight: 600;
-        font-size: 0.86rem;
-        color: #CBD5E1;
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(90deg, rgba(0, 245, 212, 0.18), rgba(59, 130, 246, 0.22)) !important;
-        color: #00F5D4 !important;
-        border-bottom: 2px solid #00F5D4 !important;
-    }
-    /* Custom Institutional Cards & Badges */
-    .terminal-banner {
-        background: linear-gradient(90deg, #0F172A 0%, #1E293B 60%, #0F172A 100%);
-        border: 1px solid rgba(0, 245, 212, 0.3);
-        border-radius: 12px;
-        padding: 16px 22px;
-        margin-bottom: 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .thesis-card {
-        background: rgba(15, 23, 42, 0.78);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-top: 3px solid #3B82F6;
-        border-radius: 10px;
-        padding: 16px;
-        height: 100%;
-    }
-    .risk-card {
-        background: rgba(30, 41, 59, 0.65);
-        border: 1px solid rgba(239, 68, 68, 0.35);
-        border-left: 4px solid #EF4444;
-        border-radius: 10px;
-        padding: 14px 16px;
-        margin-bottom: 10px;
-    }
-    .audit-pass {
-        background: rgba(16, 185, 129, 0.12);
-        border: 1px solid rgba(16, 185, 129, 0.4);
-        border-left: 4px solid #10B981;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 8px;
-    }
-    .badge-buy {
-        background-color: rgba(0, 245, 212, 0.18);
-        color: #00F5D4;
-        border: 1px solid #00F5D4;
-        padding: 4px 12px;
-        border-radius: 6px;
-        font-weight: 800;
-        font-size: 0.85rem;
-        letter-spacing: 0.06em;
-    }
-    .badge-hold {
-        background-color: rgba(245, 158, 11, 0.18);
-        color: #F59E0B;
-        border: 1px solid #F59E0B;
-        padding: 4px 12px;
-        border-radius: 6px;
-        font-weight: 800;
-        font-size: 0.85rem;
-        letter-spacing: 0.06em;
-    }
-    .badge-sell {
-        background-color: rgba(239, 68, 68, 0.18);
-        color: #EF4444;
-        border: 1px solid #EF4444;
-        padding: 4px 12px;
-        border-radius: 6px;
-        font-weight: 800;
-        font-size: 0.85rem;
-        letter-spacing: 0.06em;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+TEAL, BLUE, AMBER, RED = "#00F5D4", "#3B82F6", "#F59E0B", "#EF4444"
+PALETTE = [TEAL, BLUE, AMBER, RED, "#8B5CF6", "#94A3B8"]
+SCENARIOS = ["Bull", "Base", "Bear"]
+SEGMENTS = ["Noodles", "Dairy", "Snack Foods", "Food Seasonings", "Nutrition & Special Foods", "Beverages"]
+REGIONS = ["Indonesia", "Middle East & Africa"]
+
+CSS = """
+<style>
+.block-container {padding-top: 1.1rem; padding-bottom: 1rem; max-width: 1550px;}
+.stApp {background-color: #0B1220;}
+.stApp, .stApp p, .stApp li, .stApp label, .stMarkdown {color: #E5E7EB;}
+h1, h2, h3, h4 {color: #F8FAFC; letter-spacing: -0.01em;}
+[data-testid="stSidebar"] {background: #0F172A; border-right: 1px solid #1F2A44;}
+[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #111A2E, #0F172A);
+    border: 1px solid #223052; border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+[data-testid="stMetricLabel"] {color: #94A3B8; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em;}
+[data-testid="stMetricValue"] {color: #F8FAFC; font-size: 1.45rem;}
+.stTabs [data-baseweb="tab-list"] {gap: 4px; border-bottom: 1px solid #223052;}
+.stTabs [data-baseweb="tab"] {background: #0F172A; border-radius: 8px 8px 0 0; padding: 8px 16px; color: #94A3B8;}
+.stTabs [aria-selected="true"] {background: #16233F; color: #00F5D4; border-bottom: 2px solid #00F5D4;}
+.badge {display:inline-block; padding: 4px 16px; border-radius: 6px; font-weight: 800; letter-spacing: .08em; font-size: 1.05rem;}
+.badge-BUY {background:#00F5D422; color:#00F5D4; border:1px solid #00F5D4;}
+.badge-HOLD {background:#F59E0B22; color:#F59E0B; border:1px solid #F59E0B;}
+.badge-SELL {background:#EF444422; color:#EF4444; border:1px solid #EF4444;}
+.risk-card {background:#0F172A; border:1px solid #223052; border-radius:10px; padding:14px 16px; margin-bottom:12px; min-height: 210px;}
+.risk-head {display:flex; justify-content:space-between; align-items:center; font-weight:700; color:#F8FAFC; margin-bottom:6px;}
+.risk-card .tag {font-size:.7rem; padding:2px 8px; border-radius:4px; letter-spacing:.06em;}
+.risk-card p {font-size:.85rem; margin: 4px 0; color:#CBD5E1;}
+.risk-card .impact {color:#F59E0B; font-weight:600;}
+.small-note {color:#94A3B8; font-size:.78rem;}
+</style>
+"""
 
 
-def apply_plotly_theme(fig: go.Figure, height: int = 380) -> go.Figure:
-    """Applies a standardized institutional Bloomberg/FactSet dark theme to Plotly figures."""
+def inject_css() -> None:
+    st.markdown(CSS, unsafe_allow_html=True)
+
+
+def style_fig(fig: go.Figure, height: int = 380, title: str | None = None, unified: bool = True) -> go.Figure:
+    """Apply the shared institutional chart theme."""
     fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(15, 23, 42, 0.0)",
-        plot_bgcolor="rgba(15, 23, 42, 0.35)",
-        font=dict(family="Inter, Segoe UI, sans-serif", size=12, color="#E2E8F0"),
-        height=height,
-        margin=dict(l=16, r=16, t=44, b=16),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            bgcolor="rgba(0,0,0,0)",
-        ),
-        hovermode="x unified",
+        template="plotly_dark", height=height, colorway=PALETTE,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15,23,42,0.55)",
+        font=dict(family="Inter, Segoe UI, sans-serif", size=12, color="#E5E7EB"),
+        margin=dict(l=10, r=10, t=55 if title else 25, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        title=dict(text=title, font=dict(size=14, color="#F8FAFC")) if title else None,
+        hovermode="x unified" if unified else "closest",
     )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(148, 163, 184, 0.12)", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(148, 163, 184, 0.12)", zeroline=False)
+    fig.update_xaxes(gridcolor="#1F2A44", zeroline=False)
+    fig.update_yaxes(gridcolor="#1F2A44", zeroline=False)
     return fig
 
 
-# ==============================================================================
-# 2. DATA ARCHITECTURE: SELF-CONTAINED SQLITE3 PIPELINE
-# ==============================================================================
-@st.cache_data(ttl=3600)
-def init_sql_db():
-    """
-    Creates and populates an in-memory SQLite3 database with realistic, audited-scale
-    financial data for PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP), consumer peers,
-    segment breakdowns, daily OHLCV prices, and macroeconomic indicators.
-    Returns structured pandas DataFrames and the SQL schema/queries for inspection.
-    """
-    conn = sqlite3.connect(":memory:")
-    cur = conn.cursor()
+def show_chart(fig: go.Figure, key: str | None = None) -> None:
+    try:
+        st.plotly_chart(fig, width="stretch", key=key)
+    except Exception:
+        st.plotly_chart(fig, use_container_width=True, key=key)
 
-    # 1. Create Tables via Explicit SQL DDL
-    ddl_script = """
-    CREATE TABLE financial_statements_annual (
-        year INTEGER PRIMARY KEY,
-        period_label TEXT,
-        revenue REAL,
-        cogs REAL,
-        gross_profit REAL,
-        opex REAL,
-        ebit REAL,
-        da REAL,
-        ebitda REAL,
-        interest_expense REAL,
-        fx_gain_loss REAL,
-        ebt REAL,
-        tax_expense REAL,
-        net_income_total REAL,
-        net_income_parent REAL,
-        eps REAL,
-        dps REAL,
-        shares_out_bn REAL,
-        cash_and_equiv REAL,
-        accounts_receivable REAL,
-        inventory REAL,
-        other_current_assets REAL,
-        total_current_assets REAL,
-        fixed_assets_net REAL,
-        goodwill_and_intangibles REAL,
-        other_non_current_assets REAL,
-        total_assets REAL,
-        accounts_payable REAL,
-        short_term_debt REAL,
-        other_current_liabilities REAL,
-        total_current_liabilities REAL,
-        long_term_debt REAL,
-        other_non_current_liabilities REAL,
-        total_liabilities REAL,
-        equity_parent REAL,
-        non_controlling_interest REAL,
-        total_equity REAL,
-        cfo REAL,
-        capex REAL,
-        nwc_change REAL,
-        dividends_paid REAL
-    );
 
-    CREATE TABLE financial_statements_quarterly (
-        quarter_id INTEGER PRIMARY KEY,
-        period_label TEXT,
-        revenue REAL,
-        cogs REAL,
-        gross_profit REAL,
-        opex REAL,
-        ebit REAL,
-        da REAL,
-        ebitda REAL,
-        interest_expense REAL,
-        net_income_parent REAL,
-        eps REAL,
-        shares_out_bn REAL,
-        cash_and_equiv REAL,
-        accounts_receivable REAL,
-        inventory REAL,
-        total_current_assets REAL,
-        total_assets REAL,
-        accounts_payable REAL,
-        short_term_debt REAL,
-        total_current_liabilities REAL,
-        long_term_debt REAL,
-        total_liabilities REAL,
-        total_equity REAL,
-        cfo REAL,
-        capex REAL,
-        nwc_change REAL
-    );
+def show_df(df, **kwargs) -> None:
+    try:
+        st.dataframe(df, width="stretch", **kwargs)
+    except Exception:
+        st.dataframe(df, use_container_width=True, **kwargs)
 
-    CREATE TABLE segment_breakdown (
-        year INTEGER,
-        segment_name TEXT,
-        revenue_bn REAL,
-        ebit_margin_pct REAL
-    );
 
-    CREATE TABLE geography_breakdown (
-        year INTEGER,
-        region TEXT,
-        revenue_bn REAL
-    );
+def fmt_idr(v: float) -> str:
+    return f"IDR {v / 1000:,.1f}T" if abs(v) >= 1000 else f"IDR {v:,.0f}B"
 
-    CREATE TABLE peer_comparables (
-        ticker TEXT PRIMARY KEY,
-        company_name TEXT,
-        market_cap_tn REAL,
-        share_price_idr REAL,
-        pe_ttm REAL,
-        pe_fwd REAL,
-        ev_ebitda REAL,
-        pbv REAL,
-        roe_pct REAL,
-        roic_pct REAL,
-        ebit_margin_pct REAL,
-        ebitda_cagr_5y_pct REAL,
-        div_yield_pct REAL,
-        net_debt_to_ebitda REAL
-    );
 
-    CREATE TABLE macro_indicators (
-        year INTEGER PRIMARY KEY,
-        usd_idr REAL,
-        wheat_usd_mt REAL,
-        cpo_myr_mt REAL,
-        bi_rate_pct REAL,
-        id_inflation_pct REAL,
-        id_gdp_growth_pct REAL
-    );
-    """
-    cur.executescript(ddl_script)
+def cagr(first: float, last: float, periods: int) -> float:
+    return (last / first) ** (1 / periods) - 1 if first > 0 and last > 0 and periods > 0 else float("nan")
 
-    # 2. Populate 5-Year Annual Financials (2021 - 2025, in IDR Billions)
-    # Strictly enforcing: total_assets == total_liabilities + total_equity
-    annual_rows = [
-        # 2021
-        (
-            2021, "FY2021", 56803.7, 36526.4, 20277.3, 8618.5, 11658.8, 2480.0, 14138.8,
-            1860.0, 195.0, 9993.8, 2081.8, 7912.0, 6388.0, 548.0, 215.0, 11.6619,
-            20378.0, 6820.0, 5886.0, 520.0, 33604.0, 14650.0, 56420.0, 13337.0, 118011.0,
-            4580.0, 3150.0, 11432.0, 19162.0, 36950.0, 7175.0, 63287.0,
-            33924.0, 20800.0, 54724.0,
-            11050.0, 2650.0, 410.0, 2507.0
-        ),
-        # 2022 (Ukraine Wheat Spike & FX Unrealized Bond Translation Impact)
-        (
-            2022, "FY2022", 64797.5, 43005.5, 21792.0, 8414.0, 13378.0, 2690.0, 16068.0,
-            2110.0, -3720.0, 7548.0, 1826.0, 5722.0, 4587.0, 393.0, 215.0, 11.6619,
-            15741.0, 7450.0, 7132.0, 747.0, 31070.0, 15180.0, 55850.0, 13205.5, 115305.5,
-            5120.0, 2480.0, 3550.0, 11150.0, 39620.0, 7061.5, 57831.5,
-            36574.0, 20900.0, 57474.0,
-            9530.0, 2190.0, 860.0, 2507.0
-        ),
-        # 2023 (Margin Expansion & Pricing Power Recovery)
-        (
-            2023, "FY2023", 67909.9, 42783.2, 25126.7, 9261.0, 15865.7, 2850.0, 18715.7,
-            2050.0, -2980.0, 10835.7, 2368.7, 8467.0, 6991.0, 599.0, 200.0, 11.6619,
-            19348.0, 7890.0, 6329.0, 955.0, 34522.0, 15840.0, 55320.0, 13585.0, 119267.0,
-            5410.0, 2120.0, 3751.0, 11281.0, 38950.0, 6932.0, 57163.0,
-            40604.0, 21500.0, 62104.0,
-            11675.0, 2850.0, -320.0, 2332.0
-        ),
-        # 2024 (Record Operating Profit & Pinehill Scale)
-        (
-            2024, "FY2024", 72597.0, 45706.0, 26891.0, 10581.0, 16310.0, 3120.0, 19430.0,
-            2020.0, -3150.0, 11140.0, 2291.0, 8849.0, 7079.0, 607.0, 250.0, 11.6619,
-            25293.0, 8420.0, 7561.0, 1011.0, 42285.0, 16490.0, 54210.0, 13603.0, 126588.0,
-            5890.0, 2650.0, 5402.0, 13942.0, 38760.0, 6846.0, 59548.0,
-            44540.0, 22500.0, 67040.0,
-            13159.0, 3120.0, 490.0, 2915.0
-        ),
-        # 2025 (Audited Full Year Benchmark)
-        (
-            2025, "FY2025", 74850.9, 47486.0, 27364.9, 10709.4, 16655.5, 3380.0, 20035.5,
-            1960.0, -1420.0, 13275.5, 2925.5, 10350.0, 9224.9, 791.0, 266.0, 11.6619,
-            25859.0, 8890.0, 7516.0, 1068.0, 43333.0, 17120.0, 61250.0, 13841.4, 135544.4,
-            6180.0, 3829.0, 6685.0, 16694.0, 40000.0, 6674.0, 63368.0,
-            48976.4, 23200.0, 72176.4,
-            12104.4, 3450.0, 540.0, 3102.0
-        ),
+
+# =============================================================================
+# 1. SYNTHETIC DATA GENERATION
+# =============================================================================
+def _mn(x) -> np.ndarray:
+    """IDR billions -> integer IDR millions (raw-table storage unit)."""
+    return np.round(np.asarray(x, dtype=float) * 1000).astype("int64")
+
+
+def _generate_annual() -> dict[str, pd.DataFrame]:
+    n = len(FISCAL_YEARS)
+    rev = np.array([56_804, 64_797, 67_925, 71_200, 74_800], dtype=float)
+    cogs = rev * (1 - np.array([0.335, 0.300, 0.340, 0.355, 0.360]))
+    opex = rev * np.array([0.185, 0.185, 0.185, 0.188, 0.188])
+    da = rev * np.array([0.030, 0.031, 0.030, 0.030, 0.030])
+    interest = np.array([1_250, 1_500, 1_700, 1_650, 1_550], dtype=float)
+    other_inc = np.array([900, 300, 800, 1_000, 1_100], dtype=float)
+    ebit = rev - cogs - opex
+    pretax = ebit - interest + other_inc
+    tax = pretax * TAX_RATE
+    ni = pretax - tax
+    minority = ni * MINORITY_SHARE
+    dividends = (ni - minority) * PAYOUT
+
+    rec = np.array([5_600, 6_300, 6_800, 7_100, 7_450], dtype=float)
+    inv = np.array([5_100, 6_500, 6_100, 6_300, 6_600], dtype=float)
+    oca = np.array([3_200, 3_400, 3_500, 3_600, 3_700], dtype=float)
+    ppe = np.array([24_500, 25_800, 27_000, 28_400, 29_800], dtype=float)
+    gw = np.array([4_800, 4_800, 4_850, 4_850, 4_900], dtype=float)
+    pay = np.array([4_800, 5_600, 5_900, 6_100, 6_400], dtype=float)
+    ocl = np.array([5_000, 5_500, 5_800, 6_000, 6_300], dtype=float)
+    oncl = np.array([8_000, 8_200, 8_400, 8_600, 8_800], dtype=float)
+
+    nwc = rec + inv + oca - pay - ocl
+    d_nwc = np.diff(nwc, prepend=nwc[0] - 450.0)       # FY21 change assumed +450
+    other_noncash = np.array([300, 250, 350, 300, 320], dtype=float)
+    cfo = ni + da - d_nwc + other_noncash
+    capex = rev * np.array([0.052, 0.058, 0.050, 0.048, 0.047])
+    borrow = np.array([-500, 1_700, -2_000, -1_200, -1_500], dtype=float)
+    inv_other = np.array([-2_000, -3_000, -3_000, -3_200, -3_500], dtype=float)
+
+    debt = np.zeros(n)
+    debt[0] = 25_500
+    debt[1:] = debt[0] + np.cumsum(borrow[1:])
+    st_debt, lt_debt = debt * 0.13, debt * 0.87
+
+    net_change = cfo - capex - dividends + borrow + inv_other
+    cash = np.zeros(n)
+    cash[0] = 20_700
+    cash[1:] = cash[0] + np.cumsum(net_change[1:])           # cash roll-forward ties to CF
+
+    equity = np.zeros(n)
+    equity[0] = 63_600
+    equity[1:] = equity[0] + np.cumsum((ni - dividends)[1:])  # retained earnings roll-forward
+    nci = equity * NCI_BOOK_PCT
+    liabilities = pay + st_debt + ocl + lt_debt + oncl
+    other_nca = liabilities + equity - (cash + rec + inv + oca + ppe + gw)  # balancing item
+
+    income = pd.DataFrame({
+        "fiscal_year": FISCAL_YEARS, "revenue_mn": _mn(rev), "cogs_mn": _mn(cogs), "opex_mn": _mn(opex),
+        "da_mn": _mn(da), "interest_mn": _mn(interest), "other_income_mn": _mn(other_inc),
+        "tax_mn": _mn(tax), "minority_mn": _mn(minority), "shares_mn": SHARES_MN,
+    })
+    balance = pd.DataFrame({
+        "fiscal_year": FISCAL_YEARS, "cash_mn": _mn(cash), "receivables_mn": _mn(rec),
+        "inventories_mn": _mn(inv), "other_ca_mn": _mn(oca), "ppe_mn": _mn(ppe), "goodwill_mn": _mn(gw),
+        "other_nca_mn": _mn(other_nca), "payables_mn": _mn(pay), "st_debt_mn": _mn(st_debt),
+        "other_cl_mn": _mn(ocl), "lt_debt_mn": _mn(lt_debt), "other_ncl_mn": _mn(oncl),
+        "total_equity_mn": _mn(equity), "nci_mn": _mn(nci),
+    })
+    cashflow = pd.DataFrame({
+        "fiscal_year": FISCAL_YEARS, "cfo_mn": _mn(cfo), "capex_mn": _mn(capex), "dividends_mn": _mn(dividends),
+        "net_borrowing_mn": _mn(borrow), "other_investing_mn": _mn(inv_other),
+    })
+    return {"raw_income_statement": income, "raw_balance_sheet": balance, "raw_cash_flow": cashflow}
+
+
+def _generate_quarterly() -> pd.DataFrame:
+    rng = np.random.default_rng(7)
+    labels = ["2024Q4", "2025Q1", "2025Q2", "2025Q3", "2025Q4", "2026Q1", "2026Q2", "2026Q3"]
+    ends = ["2024-12-31", "2025-03-31", "2025-06-30", "2025-09-30",
+            "2025-12-31", "2026-03-31", "2026-06-30", "2026-09-30"]
+    season = np.array([0.245, 0.245, 0.255, 0.255])
+    rev = np.concatenate([[71_200 * 0.255], 74_800 * season, 74_800 * season[:3] * np.array([1.062, 1.066, 1.070])])
+    gm = np.array([0.352, 0.355, 0.358, 0.362, 0.365, 0.363, 0.366, 0.368]) + rng.normal(0, 0.002, 8)
+    cogs = rev * (1 - gm)
+    opex = rev * (0.188 + rng.normal(0, 0.002, 8))
+    da = rev * 0.030
+    interest = np.array([415, 400, 395, 390, 385, 380, 378, 375], dtype=float)
+    other = np.array([240, 250, 260, 270, 280, 280, 285, 290], dtype=float)
+    pretax = rev - cogs - opex - interest + other
+    tax = pretax * TAX_RATE
+    ni = pretax - tax
+    cfo = (ni + da) * 0.93 + rng.normal(0, 100, 8)
+    capex = rev * 0.047 * (1 + rng.normal(0, 0.05, 8))
+    return pd.DataFrame({
+        "period": labels, "period_end": ends, "revenue_mn": _mn(rev), "cogs_mn": _mn(cogs), "opex_mn": _mn(opex),
+        "da_mn": _mn(da), "interest_mn": _mn(interest), "other_income_mn": _mn(other), "tax_mn": _mn(tax),
+        "minority_mn": _mn(ni * MINORITY_SHARE), "shares_mn": SHARES_MN, "cfo_mn": _mn(cfo), "capex_mn": _mn(capex),
+    })
+
+
+def _generate_prices() -> pd.DataFrame:
+    rng = np.random.default_rng(42)
+    dates = pd.bdate_range(end=AS_OF, periods=1_000)
+    n = len(dates)
+    vol = 0.011 * (1 + 0.4 * np.sin(np.arange(n) / 55))
+    r = rng.normal(0, 1, n) * vol
+    cum = np.cumsum(r)
+    w = np.arange(1, n + 1) / n
+    cum = cum - w * cum[-1] + w * np.log(1.10)               # Brownian bridge: ends +10% above start
+    close = np.exp(cum)
+    close = close / close[-1] * LAST_CLOSE_TARGET
+    prev = np.roll(close, 1)
+    prev[0] = close[0]
+    open_ = prev * (1 + rng.normal(0, 0.004, n))
+    high = np.maximum(open_, close) * (1 + np.abs(rng.normal(0, 0.005, n)))
+    low = np.minimum(open_, close) * (1 - np.abs(rng.normal(0, 0.005, n)))
+    tick = lambda x: np.round(x / 25) * 25                    # IDX tick size above IDR 5,000
+    volume = (rng.lognormal(np.log(8e6), 0.35, n) * (1 + 12 * np.abs(r))).astype("int64")
+    return pd.DataFrame({
+        "trade_date": dates.strftime("%Y-%m-%d"), "open": tick(open_), "high": tick(high),
+        "low": tick(low), "close": tick(close), "volume": volume,
+    })
+
+
+def _generate_macro() -> pd.DataFrame:
+    rng = np.random.default_rng(11)
+    m = 60
+    idx = np.arange(m)
+    dates = pd.date_range(end="2026-10-01", periods=m, freq="MS")
+    smooth = lambda x: pd.Series(x).rolling(3, min_periods=1).mean().to_numpy()
+    usdidr = smooth(np.linspace(14_300, 16_600, m) + rng.normal(0, 140, m))
+    wheat = smooth(7.6 + 1.5 * np.sin(idx / 9) - idx / m * 1.5 + rng.normal(0, 0.25, m))
+    cpo = smooth(900 + 120 * np.sin(idx / 7 + 1) + rng.normal(0, 35, m))
+    bi = np.interp(idx, [0, 12, 30, 45, m - 1], [3.5, 3.5, 6.25, 6.25, 5.5])
+    infl = np.clip(2.0 + 1.2 * np.sin(idx / 10) + rng.normal(0, 0.2, m), 1.2, None)
+    return pd.DataFrame({
+        "obs_date": dates.strftime("%Y-%m-%d"), "usdidr": np.round(usdidr, 0), "wheat_usd_bu": np.round(wheat, 2),
+        "cpo_usd_t": np.round(cpo, 0), "bi_rate_pct": np.round(bi, 2), "inflation_yoy_pct": np.round(infl, 2),
+    })
+
+
+def _generate_peers() -> pd.DataFrame:
+    rows = [
+        ("INDF", "PT Indofood Sukses Makmur", 62.0, 7.5, 7.0, 4.8, 0.90, 12.5, 14.0, 4.2, 6.0),
+        ("MYOR", "PT Mayora Indah", 52.0, 18.0, 16.0, 10.5, 3.30, 18.5, 9.5, 1.4, 9.0),
+        ("ULTJ", "PT Ultrajaya Milk Industry", 18.0, 14.0, 12.5, 7.8, 2.60, 18.0, 13.0, 2.5, 8.0),
+        ("UNVR", "PT Unilever Indonesia", 58.0, 17.0, 16.0, 11.0, 14.50, 82.0, 17.0, 5.5, 2.0),
+        ("CMRY", "PT Cisarua Mountain Dairy", 28.0, 21.0, 18.5, 13.5, 5.50, 28.0, 20.0, 2.1, 12.0),
     ]
-    cur.executemany(
-        f"INSERT INTO financial_statements_annual VALUES ({','.join(['?']*41)})",
-        annual_rows,
-    )
+    return pd.DataFrame(rows, columns=["ticker", "name", "mcap_tn", "pe_ttm", "pe_fwd", "ev_ebitda", "pbv",
+                                       "roe", "op_margin", "div_yield", "ebitda_growth"])
 
-    # 3. Populate 8 Recent Quarters (1Q24 - 4Q25, in IDR Billions)
-    # Strictly enforcing: total_assets == total_liabilities + total_equity
-    quarterly_rows = [
-        (1, "1Q2024", 19922.0, 12351.6, 7570.4, 2650.4, 4920.0, 760.0, 5680.0, 510.0, 2352.0, 202.0, 11.6619, 21450.0, 8100.0, 6800.0, 37200.0, 121800.0, 5500.0, 2300.0, 12100.0, 38900.0, 58100.0, 63700.0, 3450.0, 720.0, 140.0),
-        (2, "2Q2024", 17039.0, 10734.6, 6304.4, 2414.4, 3890.0, 770.0, 4660.0, 505.0, 1186.0, 102.0, 11.6619, 22800.0, 8250.0, 7100.0, 39100.0, 123400.0, 5620.0, 2450.0, 12800.0, 38850.0, 58600.0, 64800.0, 3120.0, 760.0, 110.0),
-        (3, "3Q2024", 18520.0, 11760.2, 6759.8, 2679.8, 4080.0, 790.0, 4870.0, 500.0, 2210.0, 189.0, 11.6619, 24100.0, 8320.0, 7350.0, 40800.0, 125100.0, 5740.0, 2550.0, 13400.0, 38800.0, 59100.0, 66000.0, 3380.0, 810.0, 120.0),
-        (4, "4Q2024", 17116.0, 10859.6, 6256.4, 2836.4, 3420.0, 800.0, 4220.0, 505.0, 1331.0, 114.0, 11.6619, 25293.0, 8420.0, 7561.0, 42285.0, 126588.0, 5890.0, 2650.0, 13942.0, 38760.0, 59548.0, 67040.0, 3209.0, 830.0, 120.0),
-        (5, "1Q2025", 20185.0, 12635.8, 7549.2, 2589.2, 4960.0, 825.0, 5785.0, 495.0, 2655.0, 228.0, 11.6619, 25450.0, 8550.0, 7420.0, 42480.0, 129200.0, 5960.0, 2950.0, 14600.0, 39200.0, 60600.0, 68600.0, 3520.0, 840.0, 135.0),
-        (6, "2Q2025", 17420.0, 11096.5, 6323.5, 2543.5, 3780.0, 840.0, 4620.0, 490.0, 2882.0, 247.0, 11.6619, 25610.0, 8680.0, 7460.0, 42810.0, 131400.0, 6040.0, 3250.0, 15250.0, 39500.0, 61550.0, 69850.0, 2840.0, 855.0, 145.0),
-        (7, "3Q2025", 18664.0, 11889.0, 6775.0, 2745.0, 4030.0, 850.0, 4880.0, 488.0, 1572.0, 135.0, 11.6619, 25740.0, 8790.0, 7490.0, 43080.0, 133500.0, 6110.0, 3540.0, 15950.0, 39750.0, 62450.0, 71050.0, 2910.0, 870.0, 130.0),
-        (8, "4Q2025", 18581.9, 11864.7, 6717.2, 2831.7, 3885.5, 865.0, 4750.5, 487.0, 2115.9, 181.0, 11.6619, 25859.0, 8890.0, 7516.0, 43333.0, 135544.4, 6180.0, 3829.0, 16694.0, 40000.0, 63368.0, 72176.4, 2834.4, 885.0, 130.0),
-    ]
-    cur.executemany(
-        f"INSERT INTO financial_statements_quarterly VALUES ({','.join(['?']*27)})",
-        quarterly_rows,
-    )
 
-    # 4. Populate Segment Breakdown (2021 - 2025)
-    segment_rows = [
-        # 2021
-        (2021, "Noodles", 40928.0, 24.3), (2021, "Dairy", 9144.0, 8.2), (2021, "Snack Foods", 3388.0, 9.1),
-        (2021, "Food Seasonings", 2856.0, 12.4), (2021, "Nutrition & Special Foods", 1092.0, 8.5), (2021, "Beverages", 1395.7, 4.2),
-        # 2022
-        (2022, "Noodles", 47468.0, 22.9), (2022, "Dairy", 9443.0, 7.1), (2022, "Snack Foods", 3948.0, 8.6),
-        (2022, "Food Seasonings", 3369.0, 12.1), (2022, "Nutrition & Special Foods", 1179.0, 8.2), (2022, "Beverages", 1590.5, 4.8),
-        # 2023
-        (2023, "Noodles", 50076.0, 25.8), (2023, "Dairy", 9125.0, 8.4), (2023, "Snack Foods", 4251.0, 9.8),
-        (2023, "Food Seasonings", 3691.0, 13.0), (2023, "Nutrition & Special Foods", 1228.0, 9.1), (2023, "Beverages", 1638.9, 5.4),
-        # 2024
-        (2024, "Noodles", 53512.0, 25.6), (2024, "Dairy", 9742.0, 9.2), (2024, "Snack Foods", 4598.0, 10.4),
-        (2024, "Food Seasonings", 4088.0, 13.4), (2024, "Nutrition & Special Foods", 1325.0, 9.6), (2024, "Beverages", 1732.0, 6.1),
-        # 2025
-        (2025, "Noodles", 55390.0, 25.9), (2025, "Dairy", 9955.0, 9.5), (2025, "Snack Foods", 4790.0, 10.8),
-        (2025, "Food Seasonings", 4266.0, 13.8), (2025, "Nutrition & Special Foods", 1385.0, 9.8), (2025, "Beverages", 1795.0, 6.4),
-    ]
-    cur.executemany("INSERT INTO segment_breakdown VALUES (?, ?, ?, ?)", segment_rows)
-
-    # 5. Populate Geographic Breakdown (2021 - 2025)
-    geo_rows = [
-        (2021, "Indonesia (Domestic)", 40558.0), (2021, "Middle East & Africa (Pinehill)", 13974.0), (2021, "Other Asia & Global Exports", 2271.7),
-        (2022, "Indonesia (Domestic)", 45747.0), (2022, "Middle East & Africa (Pinehill)", 16394.0), (2022, "Other Asia & Global Exports", 2656.5),
-        (2023, "Indonesia (Domestic)", 47876.0), (2023, "Middle East & Africa (Pinehill)", 17181.0), (2023, "Other Asia & Global Exports", 2852.9),
-        (2024, "Indonesia (Domestic)", 50528.0), (2024, "Middle East & Africa (Pinehill)", 18948.0), (2024, "Other Asia & Global Exports", 3121.0),
-        (2025, "Indonesia (Domestic)", 51198.0), (2025, "Middle East & Africa (Pinehill)", 20284.9), (2025, "Other Asia & Global Exports", 3368.0),
-    ]
-    cur.executemany("INSERT INTO geography_breakdown VALUES (?, ?, ?)", geo_rows)
-
-    # 6. Populate Peer Comparables (IDX Consumer Staples Leaders)
-    peer_rows = [
-        ("ICBP", "Indofood CBP Sukses Makmur", 132.95, 11400.0, 14.41, 12.65, 7.54, 2.71, 18.84, 15.65, 22.25, 11.40, 2.33, 0.90),
-        ("INDF", "Indofood Sukses Makmur (Parent)", 61.32, 6980.0, 6.45, 5.85, 4.62, 0.96, 15.10, 12.80, 18.40, 9.20, 3.82, 1.35),
-        ("MYOR", "Mayora Indah Tbk", 55.90, 2500.0, 17.85, 15.90, 11.20, 3.48, 19.50, 16.40, 12.40, 10.60, 2.20, 0.45),
-        ("ULTJ", "Ultrajaya Milk Industry Tbk", 20.80, 1800.0, 15.40, 14.10, 9.80, 2.75, 17.85, 16.90, 18.10, 8.50, 2.50, -0.65),
-        ("UNVR", "Unilever Indonesia Tbk", 89.65, 2350.0, 19.80, 18.50, 13.10, 26.40, 132.50, 64.20, 16.90, -4.80, 5.95, 0.25),
-        ("CMRY", "Cisarua Mountain Dairy (Cimory)", 41.25, 5200.0, 24.60, 20.80, 16.85, 6.12, 24.90, 22.80, 19.20, 22.50, 2.15, -0.80),
-    ]
-    cur.executemany(
-        f"INSERT INTO peer_comparables VALUES ({','.join(['?']*14)})",
-        peer_rows,
-    )
-
-    # 7. Populate Macro & Commodity Indicators (2021 - 2025)
-    macro_rows = [
-        (2021, 14269.0, 268.5, 4150.0, 3.50, 1.87, 3.70),
-        (2022, 15573.0, 362.0, 4920.0, 5.50, 5.51, 5.31),
-        (2023, 15416.0, 284.0, 3810.0, 6.00, 2.61, 5.05),
-        (2024, 15855.0, 242.0, 4120.0, 6.00, 2.15, 5.03),
-        (2025, 15920.0, 235.0, 4050.0, 5.75, 2.30, 5.12),
-    ]
-    cur.executemany(
-        "INSERT INTO macro_indicators VALUES (?, ?, ?, ?, ?, ?, ?)",
-        macro_rows,
-    )
-
-    # 8. Query via SQL with Analytical Transformations
-    sql_annual_query = """
-    SELECT
-        a.*,
-        (a.total_current_assets - a.total_current_liabilities) AS net_working_capital,
-        (a.short_term_debt + a.long_term_debt) AS total_debt,
-        ((a.short_term_debt + a.long_term_debt) - a.cash_and_equiv) AS net_debt,
-        (a.total_assets - (a.total_liabilities + a.total_equity)) AS bs_audit_diff,
-        m.usd_idr,
-        m.wheat_usd_mt,
-        m.cpo_myr_mt,
-        m.bi_rate_pct,
-        m.id_inflation_pct
-    FROM financial_statements_annual a
-    LEFT JOIN macro_indicators m ON a.year = m.year
-    ORDER BY a.year ASC;
-    """
-    df_annual = pd.read_sql_query(sql_annual_query, conn)
-
-    sql_quarterly_query = """
-    SELECT
-        q.*,
-        (q.total_current_assets - q.total_current_liabilities) AS net_working_capital,
-        (q.short_term_debt + q.long_term_debt) AS total_debt,
-        ((q.short_term_debt + q.long_term_debt) - q.cash_and_equiv) AS net_debt,
-        (q.total_assets - (q.total_liabilities + q.total_equity)) AS bs_audit_diff
-    FROM financial_statements_quarterly q
-    ORDER BY q.quarter_id ASC;
-    """
-    df_quarterly = pd.read_sql_query(sql_quarterly_query, conn)
-
-    df_segments = pd.read_sql_query("SELECT * FROM segment_breakdown ORDER BY year, revenue_bn DESC;", conn)
-    df_geo = pd.read_sql_query("SELECT * FROM geography_breakdown ORDER BY year, revenue_bn DESC;", conn)
-    df_peers = pd.read_sql_query("SELECT * FROM peer_comparables;", conn)
-    df_macro = pd.read_sql_query("SELECT * FROM macro_indicators ORDER BY year ASC;", conn)
-
-    conn.close()
-
-    # 9. Generate Realistic Daily OHLCV Stock Data (750 Trading Days: 2023 - 2025)
-    np.random.seed(42)
-    b_dates = pd.bdate_range(start="2023-01-02", periods=750)
-    n_days = len(b_dates)
-    # Realistic drift + mean-reverting oscillation around IDR 10,000 - 12,200
-    daily_rets = np.random.normal(loc=0.00028, scale=0.0128, size=n_days)
-    cycle_wave = 0.0008 * np.sin(np.linspace(0, 6 * np.pi, n_days))
-    close_prices = 9850.0 * np.exp(np.cumsum(daily_rets + cycle_wave))
-    # Anchor final close at 11,400 IDR
-    close_prices = close_prices * (11400.0 / close_prices[-1])
-    close_prices = np.round(close_prices / 25.0) * 25.0
-
-    open_prices = np.roll(close_prices, 1)
-    open_prices[0] = 9850.0
-    intraday_spread = np.abs(np.random.normal(125.0, 65.0, size=n_days))
-    high_prices = np.round((np.maximum(open_prices, close_prices) + intraday_spread) / 25.0) * 25.0
-    low_prices = np.round((np.minimum(open_prices, close_prices) - intraday_spread) / 25.0) * 25.0
-    volumes = np.random.lognormal(mean=15.85, sigma=0.48, size=n_days).astype(int)
-
-    df_ohlcv = pd.DataFrame(
-        {
-            "Date": b_dates,
-            "Open": open_prices,
-            "High": high_prices,
-            "Low": low_prices,
-            "Close": close_prices,
-            "Volume": volumes,
-        }
-    )
-    df_ohlcv["Return"] = df_ohlcv["Close"].pct_change().fillna(0.0)
-    df_ohlcv["MA50"] = df_ohlcv["Close"].rolling(50, min_periods=1).mean()
-    df_ohlcv["MA200"] = df_ohlcv["Close"].rolling(200, min_periods=1).mean()
-
-    # RSI (14)
-    delta = df_ohlcv["Close"].diff()
-    gain = delta.clip(lower=0).rolling(14, min_periods=1).mean()
-    loss = (-delta.clip(upper=0)).rolling(14, min_periods=1).mean()
-    rs = gain / loss.replace(0, np.nan)
-    df_ohlcv["RSI14"] = (100.0 - (100.0 / (1.0 + rs))).fillna(50.0)
-
-    # Rolling 30-Day Annualized Volatility (%)
-    df_ohlcv["Volatility30D_Pct"] = (
-        df_ohlcv["Return"].rolling(30, min_periods=5).std() * np.sqrt(252) * 100.0
-    ).bfill()
-
-    # Drawdown (%)
-    rolling_peak = df_ohlcv["Close"].cummax()
-    df_ohlcv["Drawdown_Pct"] = ((df_ohlcv["Close"] - rolling_peak) / rolling_peak) * 100.0
-
-    sql_docs = {
-        "ddl": ddl_script.strip(),
-        "annual_query": sql_annual_query.strip(),
-        "quarterly_query": sql_quarterly_query.strip(),
+def _generate_mix() -> tuple[pd.DataFrame, pd.DataFrame]:
+    shares = {
+        "Noodles": [.700, .695, .690, .686, .682], "Dairy": [.115, .118, .120, .122, .124],
+        "Snack Foods": [.045, .046, .047, .048, .049], "Food Seasonings": [.055, .056, .057, .058, .059],
+        "Nutrition & Special Foods": [.045, .046, .047, .048, .049],
     }
-
-    return {
-        "annual": df_annual,
-        "quarterly": df_quarterly,
-        "segments": df_segments,
-        "geo": df_geo,
-        "peers": df_peers,
-        "macro": df_macro,
-        "ohlcv": df_ohlcv,
-        "sql_docs": sql_docs,
-    }
+    shares["Beverages"] = list(np.round(1 - np.sum(list(shares.values()), axis=0), 4))
+    seg = pd.DataFrame([(y, s, float(v)) for s, vals in shares.items() for y, v in zip(FISCAL_YEARS, vals)],
+                       columns=["fiscal_year", "segment", "share"])
+    mea = np.array([0.115, 0.120, 0.125, 0.128, 0.132])
+    geo = pd.DataFrame(
+        [(y, "Indonesia", float(1 - m)) for y, m in zip(FISCAL_YEARS, mea)]
+        + [(y, "Middle East & Africa", float(m)) for y, m in zip(FISCAL_YEARS, mea)],
+        columns=["fiscal_year", "region", "share"])
+    return seg, geo
 
 
-# ==============================================================================
-# 3. FINANCIAL RATIOS, DUPONT & CASH CYCLE COMPUTATION ENGINE
-# ==============================================================================
-@st.cache_data
-def compute_financial_ratios(df_raw: pd.DataFrame, is_quarterly: bool = False) -> pd.DataFrame:
-    """
-    Computes profitability margins, DuPont ROE decomposition, ROIC vs WACC spread,
-    solvency ratios, Free Cash Flow metrics, and working capital efficiency (DIO/DSO/DPO/CCC).
-    """
-    df = df_raw.copy()
-    ann_factor = 4.0 if is_quarterly else 1.0
-    days_in_period = 91.25 if is_quarterly else 365.0
+# =============================================================================
+# 2. SQL LAYER (raw tables -> cleaned views)
+# =============================================================================
+def _bn(expr: str, alias: str) -> str:
+    """SQL fragment: IDR millions -> IDR billions, NULL-safe, rounded to 0.1bn."""
+    return f"ROUND(COALESCE({expr}, 0) / 1000.0, 1) AS {alias}"
 
-    # Profitability Margins (%)
-    df["gross_margin_pct"] = (df["gross_profit"] / df["revenue"]) * 100.0
-    df["ebit_margin_pct"] = (df["ebit"] / df["revenue"]) * 100.0
-    df["ebitda_margin_pct"] = (df["ebitda"] / df["revenue"]) * 100.0
-    df["net_margin_pct"] = (df["net_income_parent"] / df["revenue"]) * 100.0
 
-    # Growth Rates (%)
-    df["rev_growth_pct"] = df["revenue"].pct_change() * 100.0
-    df["ebit_growth_pct"] = df["ebit"].pct_change() * 100.0
-    df["net_income_growth_pct"] = df["net_income_parent"].pct_change() * 100.0
+GP_MN = "(revenue_mn - cogs_mn)"
+EBIT_MN = f"({GP_MN} - opex_mn)"
+PRETAX_MN = f"({EBIT_MN} - interest_mn + other_income_mn)"
+NI_MN = f"({PRETAX_MN} - tax_mn)"
+NIP_MN = f"({NI_MN} - minority_mn)"
+IS_SELECT = ",\n       ".join([
+    _bn("revenue_mn", "revenue"), _bn("cogs_mn", "cogs"), _bn(GP_MN, "gross_profit"), _bn("opex_mn", "opex"),
+    _bn(EBIT_MN, "ebit"), _bn("da_mn", "da"), _bn(f"({EBIT_MN} + da_mn)", "ebitda"),
+    _bn("interest_mn", "interest_expense"), _bn("other_income_mn", "other_income"),
+    _bn(PRETAX_MN, "pretax_income"), _bn("tax_mn", "tax"), _bn(NI_MN, "net_income"),
+    _bn("minority_mn", "minority_interest"), _bn(NIP_MN, "net_income_parent"),
+    f"ROUND({NIP_MN} / 1000.0 / (shares_mn / 1000.0), 1) AS eps", "shares_mn",
+])
+ASSET_COLS = ["cash", "receivables", "inventories", "other_ca", "ppe", "goodwill", "other_nca"]
+LIAB_COLS = ["payables", "st_debt", "other_cl", "lt_debt", "other_ncl"]
+_sum = lambda cols: "(" + " + ".join(f"{c}_mn" for c in cols) + ")"
+BS_SELECT = ",\n       ".join(
+    [_bn(f"{c}_mn", c) for c in ASSET_COLS + LIAB_COLS]
+    + [_bn(_sum(["cash", "receivables", "inventories", "other_ca"]), "total_current_assets"),
+       _bn(_sum(ASSET_COLS), "total_assets"), _bn("(st_debt_mn + lt_debt_mn)", "total_debt"),
+       _bn(_sum(LIAB_COLS), "total_liabilities"), _bn("total_equity_mn", "total_equity"),
+       _bn("nci_mn", "nci"), _bn("(total_equity_mn - nci_mn)", "equity_parent")])
+CF_SELECT = ",\n       ".join([
+    _bn("cfo_mn", "cfo"), _bn("capex_mn", "capex"), _bn("dividends_mn", "dividends"),
+    _bn("net_borrowing_mn", "net_borrowing"), _bn("other_investing_mn", "other_investing"),
+    _bn("(cfo_mn - capex_mn)", "fcf"),
+    _bn("(cfo_mn - capex_mn - dividends_mn + net_borrowing_mn + other_investing_mn)", "net_change_cash"),
+])
 
-    # DuPont 3-Step Decomposition (Annualized for quarterly)
-    equity_base = df["equity_parent"] if "equity_parent" in df.columns else df["total_equity"] * 0.67
-    df["net_profit_margin_dupont"] = (df["net_income_parent"] / df["revenue"]) * 100.0
-    df["asset_turnover"] = (df["revenue"] * ann_factor) / df["total_assets"]
-    df["equity_multiplier"] = df["total_assets"] / equity_base
-    df["roe_pct"] = ((df["net_income_parent"] * ann_factor) / equity_base) * 100.0
-    df["roa_pct"] = ((df["net_income_parent"] * ann_factor) / df["total_assets"]) * 100.0
+VIEW_SQL = {
+    "v_income_statement": f"CREATE VIEW v_income_statement AS\nSELECT fiscal_year,\n       {IS_SELECT}\nFROM raw_income_statement;",
+    "v_balance_sheet": f"CREATE VIEW v_balance_sheet AS\nSELECT fiscal_year,\n       {BS_SELECT}\nFROM raw_balance_sheet;",
+    "v_cash_flow": f"CREATE VIEW v_cash_flow AS\nSELECT fiscal_year,\n       {CF_SELECT}\nFROM raw_cash_flow;",
+    "v_quarterly": (
+        "CREATE VIEW v_quarterly AS\nSELECT period, period_end,\n       " + IS_SELECT + ",\n       "
+        + _bn("cfo_mn", "cfo") + ",\n       " + _bn("capex_mn", "capex") + ",\n       "
+        + _bn("(cfo_mn - capex_mn)", "fcf") + "\nFROM raw_quarterly;"),
+    "v_price": ("CREATE VIEW v_price AS\nSELECT trade_date, ROUND(open,0) AS open, ROUND(high,0) AS high,\n"
+                "       ROUND(low,0) AS low, ROUND(close,0) AS close, volume\nFROM raw_price_daily\n"
+                "WHERE volume > 0 AND high >= low AND close > 0;"),
+}
+RAW_TABLE_OF_VIEW = {"v_income_statement": "raw_income_statement", "v_balance_sheet": "raw_balance_sheet",
+                     "v_cash_flow": "raw_cash_flow", "v_quarterly": "raw_quarterly", "v_price": "raw_price_daily"}
+SQL_QUERIES = {
+    "income": "SELECT * FROM v_income_statement ORDER BY fiscal_year",
+    "balance": "SELECT * FROM v_balance_sheet ORDER BY fiscal_year",
+    "cashflow": "SELECT * FROM v_cash_flow ORDER BY fiscal_year",
+    "quarterly": "SELECT * FROM v_quarterly ORDER BY period_end",
+    "price": "SELECT * FROM v_price ORDER BY trade_date",
+    "macro": "SELECT * FROM raw_macro ORDER BY obs_date",
+    "peers": "SELECT * FROM peers",
+    "segments": "SELECT * FROM segment_mix ORDER BY fiscal_year, segment",
+    "geo": "SELECT * FROM geo_mix ORDER BY fiscal_year, region",
+}
+SQL_PIPELINE_DOC = """-- PIPELINE:  raw_* tables (IDR millions, integers)  -->  v_* views  -->  pandas
+-- 1. Unit conversion : IDR mn -> IDR bn  (/1000.0), ROUND(.., 1)
+-- 2. NULL safety     : COALESCE(col, 0) on every numeric field
+-- 3. Derivations     : gross_profit, EBIT, EBITDA, pre-tax, net income, parent NI, EPS,
+--                      total assets / liabilities / debt, FCF, net change in cash
+-- 4. Price cleaning  : v_price drops rows with volume <= 0, high < low or close <= 0
+-- 5. Safety          : the connection is opened with PRAGMA query_only = ON (read-only)
+"""
 
-    # Invested Capital & ROIC (%)
-    tax_rate = 0.22
-    df["nopat"] = df["ebit"] * (1.0 - tax_rate)
-    df["invested_capital"] = df["total_debt"] + df["total_equity"] - df["cash_and_equiv"]
-    df["roic_pct"] = ((df["nopat"] * ann_factor) / df["invested_capital"]) * 100.0
-    df["wacc_benchmark_pct"] = 8.50
-    df["eva_spread_pct"] = df["roic_pct"] - df["wacc_benchmark_pct"]
 
-    # Leverage & Solvency
-    df["net_debt_to_ebitda"] = df["net_debt"] / (df["ebitda"] * ann_factor)
-    df["debt_to_equity"] = df["total_debt"] / df["total_equity"]
-    df["interest_coverage"] = df["ebit"] / df["interest_expense"]
+@st.cache_resource(show_spinner=False)
+def init_sql_db() -> sqlite3.Connection:
+    """Create the in-memory SQLite database: raw tables, cleaned views, reference tables."""
+    con = sqlite3.connect(":memory:", check_same_thread=False)
+    tables = _generate_annual()
+    tables["raw_quarterly"] = _generate_quarterly()
+    tables["raw_price_daily"] = _generate_prices()
+    tables["raw_macro"] = _generate_macro()
+    tables["peers"] = _generate_peers()
+    tables["segment_mix"], tables["geo_mix"] = _generate_mix()
+    for name, df in tables.items():
+        df.to_sql(name, con, index=False, if_exists="replace")
+    for sql in VIEW_SQL.values():
+        con.execute(sql)
+    con.commit()
+    con.execute("PRAGMA query_only = ON")
+    return con
 
-    # Free Cash Flow & Conversion
-    df["fcf_accounting"] = df["cfo"] - df["capex"]
-    df["ufcf"] = df["nopat"] + df["da"] - df["capex"] - df["nwc_change"]
-    df["fcf_conversion_pct"] = (df["fcf_accounting"] / df["net_income_parent"]) * 100.0
-    df["cfo_to_ebitda_pct"] = (df["cfo"] / df["ebitda"]) * 100.0
 
-    # Cash Conversion Cycle (Days)
-    df["dso_days"] = (df["accounts_receivable"] / df["revenue"]) * days_in_period
-    df["dio_days"] = (df["inventory"] / df["cogs"]) * days_in_period
-    df["dpo_days"] = (df["accounts_payable"] / df["cogs"]) * days_in_period
-    df["ccc_days"] = df["dio_days"] + df["dso_days"] - df["dpo_days"]
+@st.cache_data(show_spinner="Querying SQLite pipeline...")
+def load_data() -> dict[str, pd.DataFrame]:
+    """Run all cleaning queries once and return pandas frames."""
+    con = init_sql_db()
+    out = {k: pd.read_sql_query(q, con) for k, q in SQL_QUERIES.items()}
+    out["price"]["trade_date"] = pd.to_datetime(out["price"]["trade_date"])
+    out["macro"]["obs_date"] = pd.to_datetime(out["macro"]["obs_date"])
+    out["quarterly"]["period_end"] = pd.to_datetime(out["quarterly"]["period_end"])
+    return out
 
+
+@st.cache_data(show_spinner=False)
+def run_sql(query: str) -> pd.DataFrame:
+    return pd.read_sql_query(query, init_sql_db())
+
+
+# =============================================================================
+# 3. ANALYTICS: RATIOS, LTM, DCF, MACRO, TECHNICALS
+# =============================================================================
+def compute_financial_ratios(income: pd.DataFrame, balance: pd.DataFrame, cashflow: pd.DataFrame,
+                             wacc: float = 0.10) -> pd.DataFrame:
+    """Merge the three statements and derive growth, margin, return, leverage and cash metrics."""
+    df = (income.merge(balance, on="fiscal_year").merge(cashflow, on="fiscal_year")
+          .sort_values("fiscal_year").reset_index(drop=True))
+    df["period_label"] = "FY" + df["fiscal_year"].astype(str)
+    df["rev_growth"] = df["revenue"].pct_change()
+    df["ni_growth"] = df["net_income_parent"].pct_change()
+    df["ebit_growth"] = df["ebit"].pct_change()
+    for name, col in {"gross_margin": "gross_profit", "ebit_margin": "ebit",
+                      "ebitda_margin": "ebitda", "net_margin": "net_income"}.items():
+        df[name] = df[col] / df["revenue"]
+    df["fcf_margin"] = df["fcf"] / df["revenue"]
+    df["eff_tax"] = df["tax"] / df["pretax_income"]
+    df["nopat"] = df["ebit"] * (1 - df["eff_tax"])
+    df["invested_capital"] = df["total_debt"] + df["total_equity"] - df["cash"]
+    df["roic"] = df["nopat"] / df["invested_capital"]
+    df["roe"] = df["net_income_parent"] / df["equity_parent"]
+    df["dupont_margin"] = df["net_income_parent"] / df["revenue"]
+    df["asset_turnover"] = df["revenue"] / df["total_assets"]
+    df["equity_multiplier"] = df["total_assets"] / df["equity_parent"]
+    df["roic_wacc_spread"] = df["roic"] - wacc
+    df["net_debt"] = df["total_debt"] - df["cash"]
+    df["net_debt_ebitda"] = df["net_debt"] / df["ebitda"]
+    df["debt_equity"] = df["total_debt"] / df["total_equity"]
+    df["interest_cov"] = df["ebit"] / df["interest_expense"]
+    df["dso"] = df["receivables"] / df["revenue"] * 365
+    df["dio"] = df["inventories"] / df["cogs"] * 365
+    df["dpo"] = df["payables"] / df["cogs"] * 365
+    df["ccc"] = df["dso"] + df["dio"] - df["dpo"]
+    df["ocf_to_ni"] = df["cfo"] / df["net_income"]
+    df["ocf_to_ebitda"] = df["cfo"] / df["ebitda"]
+    df["dps"] = df["dividends"] / (df["shares_mn"] / 1000)
+    df["bvps"] = df["equity_parent"] / (df["shares_mn"] / 1000)
     return df
 
 
-# ==============================================================================
-# 4. FORECASTING & TWO-STAGE DCF VALUATION ENGINE
-# ==============================================================================
-def run_dcf_model(
-    base_rev: float,
-    rev_cagr_pct: float,
-    target_ebit_margin_pct: float,
-    wacc_pct: float,
-    term_g_pct: float,
-    capex_pct_sales: float,
-    da_pct_sales: float = 4.4,
-    nwc_pct_rev_change: float = 5.5,
-    tax_rate_pct: float = 22.0,
-    total_debt: float = 43829.0,
-    cash_and_equiv: float = 25859.0,
-    minority_interest: float = 11600.0,
-    shares_out_bn: float = 11.6619,
-    current_price: float = 11400.0,
-    base_ebit_margin_pct: float = 22.25,
-) -> dict:
+def build_quarterly_frame(q: pd.DataFrame) -> pd.DataFrame:
+    d = q.copy()
+    for name, col in {"gross_margin": "gross_profit", "ebit_margin": "ebit",
+                      "ebitda_margin": "ebitda", "net_margin": "net_income"}.items():
+        d[name] = d[col] / d["revenue"]
+    d["rev_yoy"] = d["revenue"].pct_change(4)
+    return d
+
+
+def ltm_block(q: pd.DataFrame, fin: pd.DataFrame) -> dict:
+    """Last-4-quarter (LTM) vs prior-4-quarter aggregates."""
+    def agg(d: pd.DataFrame, bs_row: pd.Series) -> dict:
+        out = {k: float(d[k].sum()) for k in
+               ["revenue", "gross_profit", "ebit", "ebitda", "net_income", "net_income_parent", "fcf", "da", "cfo", "capex"]}
+        out["eps"] = out["net_income_parent"] / (d["shares_mn"].iloc[-1] / 1000)
+        out["roe"] = out["net_income_parent"] / bs_row["equity_parent"]
+        out["roic"] = out["ebit"] * (1 - TAX_RATE) / bs_row["invested_capital"]
+        return out
+    return {"cur": agg(q.tail(4), fin.iloc[-1]), "prv": agg(q.head(4), fin.iloc[-2])}
+
+
+def build_dcf_base(fin: pd.DataFrame) -> dict:
+    l = fin.iloc[-1]
+    return dict(
+        base_year=int(l["fiscal_year"]), revenue=float(l["revenue"]), ebit_margin=float(l["ebit"] / l["revenue"]),
+        da_pct=float(l["da"] / l["revenue"]),
+        nwc_pct=float((l["receivables"] + l["inventories"] + l["other_ca"] - l["payables"] - l["other_cl"]) / l["revenue"]),
+        tax=TAX_RATE, net_debt=float(l["total_debt"] - l["cash"]), nci_fv=float(l["nci"] * NCI_FV_MULT),
+        shares_bn=float(l["shares_mn"] / 1000),
+    )
+
+
+def run_dcf_model(base: dict, a: dict, current_price: float) -> dict:
     """
-    Executes a 5-year explicit Unlevered Free Cash Flow (UFCF) forecast (2026E-2030E),
-    Gordon Growth Terminal Value calculation, Enterprise-to-Equity bridge, and 2D
-    WACC vs Terminal Growth sensitivity grid.
+    5-year unlevered DCF.  `a` keys (decimals): rev_cagr, ebit_margin, wacc, tg, capex_pct.
+    EBIT margin glides linearly to target; NWC change = nwc% x change in revenue;
+    terminal value by Gordon growth on year-5 UFCF; equity bridge deducts net debt and NCI (1.5x book).
     """
-    g_rev = rev_cagr_pct / 100.0
-    wacc = max(wacc_pct / 100.0, 0.04)
-    term_g = min(term_g_pct / 100.0, wacc - 0.005)
-    tax_r = tax_rate_pct / 100.0
-    capex_r = capex_pct_sales / 100.0
-    da_r = da_pct_sales / 100.0
-    nwc_r = nwc_pct_rev_change / 100.0
+    n = 5
+    t = np.arange(1, n + 1)
+    years = [f"FY{base['base_year'] + i}E" for i in t]
+    revenue = base["revenue"] * (1 + a["rev_cagr"]) ** t
+    margin = base["ebit_margin"] + (a["ebit_margin"] - base["ebit_margin"]) * t / n
+    ebit = revenue * margin
+    nopat = ebit * (1 - base["tax"])
+    da = revenue * base["da_pct"]
+    capex = revenue * a["capex_pct"]
+    prev_rev = np.concatenate([[base["revenue"]], revenue[:-1]])
+    d_nwc = (revenue - prev_rev) * base["nwc_pct"]
+    ufcf = nopat + da - capex - d_nwc
+    disc = (1 + a["wacc"]) ** t
+    pv = ufcf / disc
+    spread = max(a["wacc"] - a["tg"], 0.005)
+    tv = ufcf[-1] * (1 + a["tg"]) / spread
+    pv_tv = tv / disc[-1]
+    ev = float(pv.sum() + pv_tv)
+    equity = ev - base["net_debt"] - base["nci_fv"]
+    price = equity / base["shares_bn"]
+    fc = pd.DataFrame({
+        "revenue": revenue, "growth": np.concatenate([[revenue[0] / base["revenue"] - 1], revenue[1:] / revenue[:-1] - 1]),
+        "ebit_margin": margin, "ebit": ebit, "nopat": nopat, "da": da, "capex": capex, "d_nwc": d_nwc,
+        "ufcf": ufcf, "disc_factor": 1 / disc, "pv_ufcf": pv,
+    }, index=years)
+    return dict(forecast=fc, ev=ev, pv_fcf=float(pv.sum()), pv_tv=float(pv_tv), tv=float(tv),
+                tv_share=float(pv_tv / ev), equity=float(equity), price=float(price),
+                upside=float(price / current_price - 1), assumptions=a, net_debt=base["net_debt"], nci_fv=base["nci_fv"],
+                tv_ebitda=float(tv / (ebit[-1] + da[-1])))
 
-    forecast_rows = []
-    prev_rev = base_rev
 
-    for yr_idx in range(1, 6):
-        proj_year = 2025 + yr_idx
-        rev = prev_rev * (1.0 + g_rev)
-        # Gradual linear convergence from base EBIT margin to target EBIT margin
-        weight = yr_idx / 5.0
-        ebit_m = (base_ebit_margin_pct * (1.0 - weight) + target_ebit_margin_pct * weight) / 100.0
-        ebit = rev * ebit_m
-        nopat = ebit * (1.0 - tax_r)
-        da = rev * da_r
-        ebitda = ebit + da
-        capex = rev * capex_r
-        d_nwc = (rev - prev_rev) * nwc_r
-        ufcf = nopat + da - capex - d_nwc
-        disc_factor = (1.0 + wacc) ** yr_idx
-        pv_ufcf = ufcf / disc_factor
+def sensitivity_grid(base: dict, a: dict, price: float):
+    waccs = np.round(a["wacc"] + np.arange(-0.015, 0.0151, 0.005), 4)
+    gs = np.round(np.clip(a["tg"] + np.arange(-0.01, 0.0101, 0.005), 0, None), 4)
+    z = np.array([[run_dcf_model(base, {**a, "wacc": w, "tg": g}, price)["price"] if w > g + 0.004 else np.nan
+                   for w in waccs] for g in gs])
+    return waccs, gs, z
 
-        forecast_rows.append(
-            {
-                "Year": f"{proj_year}E",
-                "Year_Index": yr_idx,
-                "Revenue": rev,
-                "EBITDA": ebitda,
-                "EBIT": ebit,
-                "EBIT_Margin_Pct": ebit_m * 100.0,
-                "NOPAT": nopat,
-                "DA": da,
-                "CapEx": capex,
-                "NWC_Change": d_nwc,
-                "UFCF": ufcf,
-                "Discount_Factor": disc_factor,
-                "PV_UFCF": pv_ufcf,
-            }
-        )
-        prev_rev = rev
 
-    df_proj = pd.DataFrame(forecast_rows)
-    sum_pv_ufcf = df_proj["PV_UFCF"].sum()
-    terminal_ufcf = df_proj.iloc[-1]["UFCF"] * (1.0 + term_g)
-    terminal_value = terminal_ufcf / (wacc - term_g)
-    pv_terminal_value = terminal_value / ((1.0 + wacc) ** 5)
+def rating_from_upside(u: float) -> str:
+    return "BUY" if u >= 0.15 else ("SELL" if u <= -0.10 else "HOLD")
 
-    enterprise_value = sum_pv_ufcf + pv_terminal_value
-    net_debt = total_debt - cash_and_equiv
-    # Attributable Equity Value accounts for net debt and minority interest claims
-    implied_equity_value = enterprise_value - net_debt - minority_interest
-    implied_share_price = (implied_equity_value / shares_out_bn)
-    upside_pct = ((implied_share_price - current_price) / current_price) * 100.0
 
-    # 2D Sensitivity Matrix: WACC (x-axis) vs Terminal Growth Rate (y-axis)
-    wacc_grid = np.round(np.linspace(wacc_pct - 1.5, wacc_pct + 1.5, 7), 2)
-    g_grid = np.round(np.linspace(max(1.0, term_g_pct - 1.2), term_g_pct + 1.2, 7), 2)
+# ---- macro / commodity sensitivity model ----------------------------------------
+COST_MIX = {"wheat": 0.32, "cpo": 0.12, "other_raw": 0.28, "overhead": 0.28}   # share of COGS
+USD_LINKED_OTHER = 0.25        # share of packaging / other raw materials priced off USD
+FLOATING_DEBT = 0.40           # share of debt repricing with BI rate
+USD_DEBT = 0.15                # share of debt denominated in USD (unhedged)
 
-    sens_matrix = []
-    for g_val in g_grid:
-        row_prices = []
-        for w_val in wacc_grid:
-            w_dec = max(w_val / 100.0, 0.04)
-            g_dec = min(g_val / 100.0, w_dec - 0.005)
-            pvs = [
-                r["UFCF"] / ((1.0 + w_dec) ** r["Year_Index"])
-                for _, r in df_proj.iterrows()
-            ]
-            tv_val = (df_proj.iloc[-1]["UFCF"] * (1.0 + g_dec)) / (w_dec - g_dec)
-            pv_tv = tv_val / ((1.0 + w_dec) ** 5)
-            ev_val = sum(pvs) + pv_tv
-            eq_val = ev_val - net_debt - minority_interest
-            p_share = eq_val / shares_out_bn
-            row_prices.append(round(p_share, 0))
-        sens_matrix.append(row_prices)
 
-    df_sens = pd.DataFrame(
-        sens_matrix,
-        index=[f"{g:.2f}%" for g in g_grid],
-        columns=[f"{w:.2f}%" for w in wacc_grid],
+def macro_base(fin: pd.DataFrame) -> dict:
+    l = fin.iloc[-1]
+    return dict(revenue=float(l["revenue"]), cogs=float(l["cogs"]), opex=float(l["opex"]),
+                total_debt=float(l["total_debt"]), shares_bn=float(l["shares_mn"] / 1000),
+                parent_share=float(l["net_income_parent"] / l["net_income"]), eps=float(l["eps"]),
+                gross_margin=float(l["gross_profit"] / l["revenue"]), ebit=float(l["ebit"]))
+
+
+def macro_impact(b: dict, fx=0.0, wheat=0.0, cpo=0.0, bi_bps=0.0, infl_pp=0.0,
+                 pass_through=0.35, vol_elasticity=0.8) -> dict:
+    """Shocks: fx/wheat/cpo as decimals, bi_bps in bp, infl_pp in percentage points."""
+    rev, cogs = b["revenue"], b["cogs"]
+    gp = rev - cogs
+    infl = infl_pp / 100
+    wheat_cost = cogs * COST_MIX["wheat"] * ((1 + fx) * (1 + wheat) - 1)
+    cpo_cost = cogs * COST_MIX["cpo"] * ((1 + cpo) * (1 + 0.5 * fx) - 1)
+    other_cost = cogs * (COST_MIX["other_raw"] * (USD_LINKED_OTHER * fx + infl) + COST_MIX["overhead"] * infl)
+    d_cost = wheat_cost + cpo_cost + other_cost
+    dvol = -vol_elasticity * infl_pp / 100
+    d_vol = gp * dvol
+    d_price = pass_through * d_cost
+    d_ebit = -d_cost + d_vol + d_price
+    d_interest = -b["total_debt"] * FLOATING_DEBT * bi_bps / 1e4
+    d_fxdebt = -b["total_debt"] * USD_DEBT * fx
+    d_pretax = d_ebit + d_interest + d_fxdebt
+    conv = (1 - TAX_RATE) * b["parent_share"] / b["shares_bn"]
+    d_eps = d_pretax * conv
+    rev_new = rev * (1 + dvol) + d_price
+    cogs_new = cogs * (1 + dvol) + d_cost
+    return dict(
+        d_cogs_pct=(cogs_new / cogs - 1), gm_new=(rev_new - cogs_new) / rev_new, gm_base=b["gross_margin"],
+        d_ebit=d_ebit, d_ebit_pct=d_ebit / b["ebit"], d_eps=d_eps, eps_new=b["eps"] + d_eps, d_eps_pct=d_eps / b["eps"],
+        components={"Wheat (USD & FX)": -wheat_cost * conv, "CPO": -cpo_cost * conv,
+                    "Other inputs & overhead": -other_cost * conv, "Price pass-through": d_price * conv,
+                    "Volume (purchasing power)": d_vol * conv, "Interest (floating debt)": d_interest * conv,
+                    "FX on USD debt": d_fxdebt * conv},
     )
 
-    return {
-        "df_proj": df_proj,
-        "sum_pv_ufcf": sum_pv_ufcf,
-        "terminal_value": terminal_value,
-        "pv_terminal_value": pv_terminal_value,
-        "enterprise_value": enterprise_value,
-        "net_debt": net_debt,
-        "minority_interest": minority_interest,
-        "implied_equity_value": implied_equity_value,
-        "implied_share_price": implied_share_price,
-        "upside_pct": upside_pct,
-        "tv_share_of_ev_pct": (pv_terminal_value / enterprise_value) * 100.0,
-        "df_sens": df_sens,
-        "wacc_grid": wacc_grid,
-        "g_grid": g_grid,
-    }
 
-
-# ==============================================================================
-# 5. MULTI-TAB RENDERING FUNCTIONS
-# ==============================================================================
-def render_tab1_executive_summary(db: dict, df_annual_ratios: pd.DataFrame, active_dcf: dict, active_scenario: str):
-    """Renders Tab 1: Executive Summary, Business Model, Segment & Geographic Charts, and Risk Matrix."""
-    latest = df_annual_ratios.iloc[-1]
-    implied_px = active_dcf["implied_share_price"]
-    upside = active_dcf["upside_pct"]
-
-    col_left, col_right = st.columns([1.45, 1.0], gap="medium")
-
-    with col_left:
-        st.markdown("### 🏛️ Institutional Investment Thesis & Initiation Summary")
-        st.markdown(
-            f"""
-            <div class="thesis-card">
-                <h4 style="margin-top:0; color:#00F5D4;">Conviction Thesis: Emerging Markets Consumer Compounding Machine</h4>
-                <p style="color:#E2E8F0; font-size:0.93rem; line-height:1.6;">
-                    <strong>PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP)</strong> commands an unassailable competitive moat in Southeast Asian and MENA consumer staples. Anchored by its flagship <em>Indomie</em> brand (<strong>&gt;70% domestic instant noodle market share</strong>) and vertically integrated with the Salim Group's national distribution network (<strong>&gt;500,000 retail warungs &amp; modern trade points</strong>), ICBP exhibits extraordinary pricing power and cash flow resilience across commodity cycles.
-                </p>
-                <ul style="color:#CBD5E1; font-size:0.9rem; line-height:1.55;">
-                    <li><strong>1. Structural Margin &amp; Pricing Power:</strong> FY2025 EBIT Margin stood at <strong>{latest['ebit_margin_pct']:.2f}%</strong> (EBITDA Rp {latest['ebitda']:,.1f}B), outperforming domestic FMCG peers by +400 to +950 bps due to upstream flour milling integration (Bogasari) and palm oil supply synergies.</li>
-                    <li><strong>2. Pinehill International Growth Engine:</strong> The $3.0B acquisition of Pinehill Company Limited transformed ICBP into a transcontinental food giant spanning <strong>8+ high-growth countries across the Middle East &amp; Africa (&gt;885M consumers)</strong>. Per-capita consumption in MENA/Africa (&lt;15 packs/year) offers a multi-decade volume runway toward Indonesian levels (&gt;52 packs/year).</li>
-                    <li><strong>3. Fortress Free Cash Flow &amp; De-leveraging:</strong> Generating <strong>Rp {latest['cfo']:,.1f}B in Operating Cash Flow</strong> and <strong>Rp {latest['fcf_accounting']:,.1f}B in Free Cash Flow</strong> (Net Debt/EBITDA down to <strong>{latest['net_debt_to_ebitda']:.2f}x</strong>), ICBP effortlessly services its long-dated USD Eurobonds while sustaining a 35–50% dividend payout ratio.</li>
-                    <li><strong>4. Compelling Valuation Asymmetry ({active_scenario} Case):</strong> At the current share price of <strong>Rp 11,400</strong> (14.4x Trailing P/E vs. 10Y historical average of 22.5x), our Two-Stage DCF yields an intrinsic fair value of <strong>Rp {implied_px:,.0f}/share ({upside:+.1f}% implied return)</strong>.</li>
-                </ul>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col_right:
-        st.markdown("### ⚠️ Key Investment Risks & Mitigation Matrix")
-        risks = [
-            {
-                "title": "1. Foreign Exchange & USD Bond Translation Exposure",
-                "severity": "HIGH",
-                "prob": "MEDIUM",
-                "desc": "ICBP holds ~$2.75B in long-dated USD Eurobonds (2031/2051 maturities) issued for the Pinehill acquisition. IDR depreciation triggers non-cash mark-to-market FX losses below the operating line.",
-                "mitigation": "Natural operational FX hedge via Pinehill's overseas export earnings (31.6% of consolidated revenue) and low fixed coupon rates (3.398% - 4.745%).",
-            },
-            {
-                "title": "2. Soft Commodity Input Inflation (Wheat & CPO)",
-                "severity": "MEDIUM",
-                "prob": "HIGH",
-                "desc": "Wheat flour and cooking oil (CPO) represent ~55-60% of noodles COGS. Global supply chain shocks or El Niño weather anomalies can compress gross margins.",
-                "mitigation": "Strategic cost-pass-through pricing power (+3-5% ASP adjustments without volume loss) and priority procurement via sister division Bogasari.",
-            },
-            {
-                "title": "3. Grassroots Purchasing Power & Regulatory Excise Risks",
-                "severity": "MEDIUM",
-                "prob": "LOW",
-                "desc": "Prolonged food inflation or potential implementation of sweetened beverage excise duties (cukai MBDK) could dampen discretionary snack and beverage volumes.",
-                "mitigation": "Instant noodles act as an inferior/Giffen-like staple good during downturns (consumers trade down from protein to affordable Rp 3,000 Indomie packs).",
-            },
-        ]
-        for r in risks:
-            st.markdown(
-                f"""
-                <div class="risk-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                        <strong style="color:#F8FAFC; font-size:0.9rem;">{r['title']}</strong>
-                        <span style="font-size:0.72rem; background:rgba(239,68,68,0.2); color:#FCA5A5; padding:2px 8px; border-radius:4px;">
-                            Severity: {r['severity']} | Prob: {r['prob']}
-                        </span>
-                    </div>
-                    <div style="color:#CBD5E1; font-size:0.82rem; margin-bottom:4px;">{r['desc']}</div>
-                    <div style="color:#00F5D4; font-size:0.8rem;"><strong>Mitigation:</strong> {r['mitigation']}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-    st.markdown("---")
-    st.markdown("### 🧩 Revenue Architecture: Operating Divisions & Global Footprint")
-
-    df_seg = db["segments"]
-    df_geo = db["geo"]
-
-    c1, c2, c3 = st.columns([1.0, 1.25, 1.15], gap="medium")
-
-    with c1:
-        df_seg_2025 = df_seg[df_seg["year"] == 2025]
-        fig_donut = px.pie(
-            df_seg_2025,
-            names="segment_name",
-            values="revenue_bn",
-            hole=0.58,
-            color_discrete_sequence=PALETTE_MAIN,
-            title="FY2025 Gross Revenue Mix by Division",
-        )
-        fig_donut.update_traces(
-            textposition="inside",
-            textinfo="percent+label",
-            hovertemplate="<b>%{label}</b><br>Revenue: Rp %{value:,.1f}B (%{percent})<extra></extra>",
-        )
-        fig_donut = apply_plotly_theme(fig_donut, height=370)
-        fig_donut.update_layout(showlegend=False)
-        st.plotly_chart(fig_donut, use_container_width=True)
-
-    with c2:
-        fig_seg_bar = px.bar(
-            df_seg,
-            x="year",
-            y="revenue_bn",
-            color="segment_name",
-            barmode="stack",
-            color_discrete_sequence=PALETTE_MAIN,
-            title="5-Year Divisional Revenue Evolution (IDR Billions)",
-            labels={"year": "Fiscal Year", "revenue_bn": "Revenue (IDR B)", "segment_name": "Division"},
-        )
-        fig_seg_bar = apply_plotly_theme(fig_seg_bar, height=370)
-        st.plotly_chart(fig_seg_bar, use_container_width=True)
-
-    with c3:
-        fig_geo = px.bar(
-            df_geo,
-            x="year",
-            y="revenue_bn",
-            color="region",
-            barmode="group",
-            color_discrete_sequence=[COLOR_TEAL, COLOR_BLUE, COLOR_AMBER],
-            title="Geographic Revenue Split: Domestic vs. Pinehill",
-            labels={"year": "Fiscal Year", "revenue_bn": "Revenue (IDR B)", "region": "Geography"},
-        )
-        fig_geo = apply_plotly_theme(fig_geo, height=370)
-        st.plotly_chart(fig_geo, use_container_width=True)
-
-
-def render_tab2_financial_fundamentals(db: dict, df_active: pd.DataFrame, is_quarterly: bool):
-    """Renders Tab 2: 5Y/Quarterly Financial Fundamentals, Ratios, DuPont, Leverage & Sparkline Table."""
-    latest = df_active.iloc[-1]
-    prev = df_active.iloc[-2]
-    period_tag = latest["period_label"]
-
-    st.markdown(f"### 📊 Key Performance Indicators — Active Period: `{period_tag}`")
-    k1, k2, k3, k4, k5, k6 = st.columns(6)
-
-    k1.metric(
-        "Revenue",
-        f"Rp {latest['revenue']:,.1f}B",
-        f"{latest['rev_growth_pct']:+.2f}% vs prior",
-    )
-    k2.metric(
-        "Operating Profit (EBIT)",
-        f"Rp {latest['ebit']:,.1f}B",
-        f"Margin: {latest['ebit_margin_pct']:.2f}%",
-    )
-    k3.metric(
-        "Net Income (Parent)",
-        f"Rp {latest['net_income_parent']:,.1f}B",
-        f"{latest['net_income_growth_pct']:+.2f}% vs prior",
-    )
-    k4.metric(
-        "Free Cash Flow (FCF)",
-        f"Rp {latest['fcf_accounting']:,.1f}B",
-        f"Conv: {latest['fcf_conversion_pct']:.1f}%",
-    )
-    k5.metric(
-        "Return on Equity (ROE)",
-        f"{latest['roe_pct']:.2f}%",
-        f"{latest['roe_pct'] - prev['roe_pct']:+.2f}% bps",
-    )
-    k6.metric(
-        "ROIC (vs 8.5% WACC)",
-        f"{latest['roic_pct']:.2f}%",
-        f"EVA Spread: {latest['eva_spread_pct']:+.2f}%",
-    )
-
-    st.markdown("---")
-    r1_c1, r1_c2 = st.columns(2, gap="medium")
-
-    with r1_c1:
-        fig_growth = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_growth.add_trace(
-            go.Bar(
-                x=df_active["period_label"],
-                y=df_active["revenue"],
-                name="Revenue (IDR B)",
-                marker_color=COLOR_BLUE,
-                opacity=0.85,
-            ),
-            secondary_y=False,
-        )
-        fig_growth.add_trace(
-            go.Bar(
-                x=df_active["period_label"],
-                y=df_active["ebit"],
-                name="EBIT (IDR B)",
-                marker_color=COLOR_TEAL,
-                opacity=0.9,
-            ),
-            secondary_y=False,
-        )
-        fig_growth.add_trace(
-            go.Scatter(
-                x=df_active["period_label"],
-                y=df_active["net_income_parent"],
-                name="Net Income (IDR B)",
-                mode="lines+markers",
-                line=dict(color=COLOR_AMBER, width=3),
-                marker=dict(size=8),
-            ),
-            secondary_y=True,
-        )
-        fig_growth.update_layout(
-            title="Top-Line Revenue, Operating EBIT & Net Earnings Trajectory",
-            barmode="group",
-        )
-        fig_growth.update_yaxes(title_text="Revenue / EBIT (IDR B)", secondary_y=False)
-        fig_growth.update_yaxes(title_text="Net Income (IDR B)", secondary_y=True, showgrid=False)
-        st.plotly_chart(apply_plotly_theme(fig_growth, height=370), use_container_width=True)
-
-    with r1_c2:
-        fig_margins = go.Figure()
-        margin_series = [
-            ("Gross Margin %", "gross_margin_pct", COLOR_TEAL),
-            ("EBITDA Margin %", "ebitda_margin_pct", COLOR_BLUE),
-            ("EBIT Margin %", "ebit_margin_pct", COLOR_AMBER),
-            ("Net Profit Margin %", "net_margin_pct", COLOR_RED),
-        ]
-        for label, col_name, color_hex in margin_series:
-            fig_margins.add_trace(
-                go.Scatter(
-                    x=df_active["period_label"],
-                    y=df_active[col_name],
-                    name=label,
-                    mode="lines+markers",
-                    line=dict(color=color_hex, width=2.8),
-                    marker=dict(size=7),
-                )
-            )
-        fig_margins.update_layout(
-            title="Profitability Margin Evolution (% of Revenue)",
-            yaxis_title="Margin (%)",
-        )
-        st.plotly_chart(apply_plotly_theme(fig_margins, height=370), use_container_width=True)
-
-    r2_c1, r2_c2, r2_c3 = st.columns(3, gap="medium")
-
-    with r2_c1:
-        fig_roic = go.Figure()
-        fig_roic.add_trace(
-            go.Bar(
-                x=df_active["period_label"],
-                y=df_active["roic_pct"],
-                name="ROIC (%)",
-                marker_color=COLOR_TEAL,
-            )
-        )
-        fig_roic.add_trace(
-            go.Scatter(
-                x=df_active["period_label"],
-                y=df_active["roe_pct"],
-                name="DuPont ROE (%)",
-                mode="lines+markers",
-                line=dict(color=COLOR_BLUE, width=2.5),
-            )
-        )
-        fig_roic.add_trace(
-            go.Scatter(
-                x=df_active["period_label"],
-                y=df_active["wacc_benchmark_pct"],
-                name="WACC Hurdle (8.5%)",
-                mode="lines",
-                line=dict(color=COLOR_RED, width=2, dash="dash"),
-            )
-        )
-        fig_roic.update_layout(title="ROIC vs. WACC Economic Spread & ROE (%)", yaxis_title="Return (%)")
-        st.plotly_chart(apply_plotly_theme(fig_roic, height=340), use_container_width=True)
-
-    with r2_c2:
-        fig_lev = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_lev.add_trace(
-            go.Bar(
-                x=df_active["period_label"],
-                y=df_active["net_debt_to_ebitda"],
-                name="Net Debt / EBITDA (x)",
-                marker_color=COLOR_BLUE,
-            ),
-            secondary_y=False,
-        )
-        fig_lev.add_trace(
-            go.Scatter(
-                x=df_active["period_label"],
-                y=df_active["debt_to_equity"],
-                name="Debt / Equity (x)",
-                mode="lines+markers",
-                line=dict(color=COLOR_AMBER, width=2.5),
-            ),
-            secondary_y=False,
-        )
-        fig_lev.add_trace(
-            go.Scatter(
-                x=df_active["period_label"],
-                y=df_active["interest_coverage"],
-                name="Interest Coverage (EBIT/Int)",
-                mode="lines+markers",
-                line=dict(color=COLOR_TEAL, width=2.5),
-            ),
-            secondary_y=True,
-        )
-        fig_lev.update_layout(title="Balance Sheet De-Leveraging & Interest Coverage")
-        fig_lev.update_yaxes(title_text="Leverage Ratio (x)", secondary_y=False)
-        fig_lev.update_yaxes(title_text="Interest Coverage (x)", secondary_y=True, showgrid=False)
-        st.plotly_chart(apply_plotly_theme(fig_lev, height=340), use_container_width=True)
-
-    with r2_c3:
-        fig_ccc = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_ccc.add_trace(
-            go.Bar(
-                x=df_active["period_label"],
-                y=df_active["cfo"],
-                name="Operating Cash Flow (IDR B)",
-                marker_color=COLOR_TEAL,
-            ),
-            secondary_y=False,
-        )
-        fig_ccc.add_trace(
-            go.Bar(
-                x=df_active["period_label"],
-                y=df_active["fcf_accounting"],
-                name="Free Cash Flow (IDR B)",
-                marker_color=COLOR_BLUE,
-            ),
-            secondary_y=False,
-        )
-        fig_ccc.add_trace(
-            go.Scatter(
-                x=df_active["period_label"],
-                y=df_active["ccc_days"],
-                name="Cash Conversion Cycle (Days)",
-                mode="lines+markers",
-                line=dict(color=COLOR_AMBER, width=2.5),
-            ),
-            secondary_y=True,
-        )
-        fig_ccc.update_layout(title="Cash Flow Generation & Working Capital Cycle", barmode="group")
-        fig_ccc.update_yaxes(title_text="Cash Flow (IDR B)", secondary_y=False)
-        fig_ccc.update_yaxes(title_text="CCC (Days)", secondary_y=True, showgrid=False)
-        st.plotly_chart(apply_plotly_theme(fig_ccc, height=340), use_container_width=True)
-
-    # Interactive Financial Statement Summary Table with Sparklines
-    st.markdown("### 📑 Consolidated Financial Statement & Ratio Matrix (with Inline Trend Sparklines)")
-    periods = df_active["period_label"].tolist()
-
-    metrics_spec = [
-        ("Revenue (IDR B)", "revenue", "IDR B"),
-        ("Gross Profit (IDR B)", "gross_profit", "IDR B"),
-        ("Gross Margin (%)", "gross_margin_pct", "%"),
-        ("Operating EBIT (IDR B)", "ebit", "IDR B"),
-        ("EBIT Margin (%)", "ebit_margin_pct", "%"),
-        ("EBITDA (IDR B)", "ebitda", "IDR B"),
-        ("Net Income - Parent (IDR B)", "net_income_parent", "IDR B"),
-        ("Net Margin (%)", "net_margin_pct", "%"),
-        ("Diluted EPS (IDR)", "eps", "IDR"),
-        ("Total Assets (IDR B)", "total_assets", "IDR B"),
-        ("Total Debt (IDR B)", "total_debt", "IDR B"),
-        ("Net Debt (IDR B)", "net_debt", "IDR B"),
-        ("Total Equity (IDR B)", "total_equity", "IDR B"),
-        ("Operating Cash Flow - CFO (IDR B)", "cfo", "IDR B"),
-        ("Capital Expenditure - CapEx (IDR B)", "capex", "IDR B"),
-        ("Free Cash Flow - FCF (IDR B)", "fcf_accounting", "IDR B"),
-        ("Return on Equity - ROE (%)", "roe_pct", "%"),
-        ("Return on Invested Capital - ROIC (%)", "roic_pct", "%"),
-        ("Net Debt / EBITDA (x)", "net_debt_to_ebitda", "x"),
-        ("Interest Coverage (x)", "interest_coverage", "x"),
-        ("Cash Conversion Cycle (Days)", "ccc_days", "Days"),
-    ]
-
-    table_rows = []
-    for label, col, unit in metrics_spec:
-        vals = [round(float(x), 2) for x in df_active[col].tolist()]
-        row_dict = {
-            "Financial Metric": label,
-            "Unit": unit,
-            "Trend_Sparkline": vals,
-        }
-        for p_name, v in zip(periods, vals):
-            row_dict[p_name] = v
-        row_dict["Period Change (%)"] = (
-            round(((vals[-1] - vals[0]) / abs(vals[0])) * 100.0, 1) if vals[0] != 0 else 0.0
-        )
-        table_rows.append(row_dict)
-
-    df_fin_table = pd.DataFrame(table_rows)
-
-    col_cfg = {
-        "Financial Metric": st.column_config.TextColumn("Line Item / Ratio", width="medium"),
-        "Unit": st.column_config.TextColumn("Unit", width="small"),
-        "Trend_Sparkline": st.column_config.LineChartColumn(
-            "Multi-Period Trend",
-            width="medium",
-            help="Inline trajectory across reporting periods",
-        ),
-        "Period Change (%)": st.column_config.NumberColumn(
-            "Cumulative Δ (%)",
-            format="%+.1f%%",
-        ),
-    }
-    for p_name in periods:
-        col_cfg[p_name] = st.column_config.NumberColumn(p_name, format="%,.2f")
-
-    st.dataframe(
-        df_fin_table,
-        column_config=col_cfg,
-        use_container_width=True,
-        hide_index=True,
-        height=480,
-    )
-
-    # SQL Data Provenance Inspector
-    with st.expander("🔍 SQLite3 Data Provenance & Interactive SQL Query Inspector", expanded=False):
-        st.markdown(
-            "Inspect how raw accounting records are stored in the in-memory `sqlite3` relational schema and transformed before Python ratio modeling."
-        )
-        q_col1, q_col2 = st.columns(2)
-        with q_col1:
-            st.markdown("**SQL DDL Schema (`sqlite3`)**")
-            st.code(db["sql_docs"]["ddl"], language="sql")
-        with q_col2:
-            st.markdown("**Active Analytical Transformation Query**")
-            active_sql = db["sql_docs"]["quarterly_query"] if is_quarterly else db["sql_docs"]["annual_query"]
-            st.code(active_sql, language="sql")
-
-
-def render_tab3_dcf_valuation(db: dict, df_annual_ratios: pd.DataFrame, active_scenario: str):
-    """Renders Tab 3: Interactive 3-Scenario DCF Controls, 5Y Forecast Table, Football Field & 2D Sensitivity."""
-    latest = df_annual_ratios.iloc[-1]
-    current_px = 11400.0
-
-    st.markdown("### 🎛️ Interactive Multi-Scenario DCF Assumptions (`Bull` / `Base` / `Bear`)")
-    st.caption(
-        f"Active Global Scenario selected in Sidebar: **{active_scenario} Case**. Adjust sliders below to stress-test ICBP's intrinsic valuation in real time."
-    )
-
-    sc_col1, sc_col2, sc_col3 = st.columns(3, gap="medium")
-
-    with sc_col1:
-        st.markdown("#### 🐂 Bull Case (Global Expansion)")
-        bull_cagr = st.slider("Bull Revenue CAGR (%)", 5.0, 15.0, 10.2, 0.1, key="bull_cagr")
-        bull_margin = st.slider("Bull Target EBIT Margin (%)", 18.0, 27.0, 24.0, 0.1, key="bull_m")
-        bull_wacc = st.slider("Bull WACC (%)", 6.5, 11.5, 7.8, 0.1, key="bull_wacc")
-        bull_g = st.slider("Bull Terminal Growth (%)", 2.0, 5.5, 4.2, 0.1, key="bull_g")
-        bull_capex = st.slider("Bull CapEx (% of Sales)", 2.5, 7.0, 4.2, 0.1, key="bull_cx")
-
-    with sc_col2:
-        st.markdown("#### ⚖️ Base Case (Consensus Benchmark)")
-        base_cagr = st.slider("Base Revenue CAGR (%)", 4.0, 13.0, 7.8, 0.1, key="base_cagr")
-        base_margin = st.slider("Base Target EBIT Margin (%)", 17.0, 26.0, 22.5, 0.1, key="base_m")
-        base_wacc = st.slider("Base WACC (%)", 6.5, 11.5, 8.5, 0.1, key="base_wacc")
-        base_g = st.slider("Base Terminal Growth (%)", 1.5, 5.0, 3.5, 0.1, key="base_g")
-        base_capex = st.slider("Base CapEx (% of Sales)", 2.5, 7.0, 4.5, 0.1, key="base_cx")
-
-    with sc_col3:
-        st.markdown("#### 🐻 Bear Case (Commodity Stagflation)")
-        bear_cagr = st.slider("Bear Revenue CAGR (%)", 2.0, 10.0, 4.8, 0.1, key="bear_cagr")
-        bear_margin = st.slider("Bear Target EBIT Margin (%)", 15.0, 23.0, 19.2, 0.1, key="bear_m")
-        bear_wacc = st.slider("Bear WACC (%)", 7.5, 12.5, 9.5, 0.1, key="bear_wacc")
-        bear_g = st.slider("Bear Terminal Growth (%)", 1.0, 4.0, 2.5, 0.1, key="bear_g")
-        bear_capex = st.slider("Bear CapEx (% of Sales)", 3.0, 7.5, 4.8, 0.1, key="bear_cx")
-
-    # Run all 3 DCF models
-    dcf_models = {
-        "Bull": run_dcf_model(
-            latest["revenue"], bull_cagr, bull_margin, bull_wacc, bull_g, bull_capex,
-            total_debt=latest["total_debt"], cash_and_equiv=latest["cash_and_equiv"],
-            shares_out_bn=latest["shares_out_bn"], current_price=current_px
-        ),
-        "Base": run_dcf_model(
-            latest["revenue"], base_cagr, base_margin, base_wacc, base_g, base_capex,
-            total_debt=latest["total_debt"], cash_and_equiv=latest["cash_and_equiv"],
-            shares_out_bn=latest["shares_out_bn"], current_price=current_px
-        ),
-        "Bear": run_dcf_model(
-            latest["revenue"], bear_cagr, bear_margin, bear_wacc, bear_g, bear_capex,
-            total_debt=latest["total_debt"], cash_and_equiv=latest["cash_and_equiv"],
-            shares_out_bn=latest["shares_out_bn"], current_price=current_px
-        ),
-    }
-
-    active_res = dcf_models[active_scenario]
-
-    st.markdown("---")
-    st.markdown(f"### 💎 DCF Valuation Output Summary (`{active_scenario} Scenario` Active)")
-
-    v1, v2, v3, v4, v5, v6 = st.columns(6)
-    v1.metric("Enterprise Value (EV)", f"Rp {active_res['enterprise_value']:,.0f}B", f"TV: {active_res['tv_share_of_ev_pct']:.1f}% of EV")
-    v2.metric("PV of 5Y UFCF", f"Rp {active_res['sum_pv_ufcf']:,.0f}B", "Stage 1 Cash Flows")
-    v3.metric("PV of Terminal Value", f"Rp {active_res['pv_terminal_value']:,.0f}B", "Gordon Growth Stage 2")
-    v4.metric("Implied Equity Value", f"Rp {active_res['implied_equity_value']:,.0f}B", f"Net Debt: Rp {active_res['net_debt']:,.0f}B")
-    v5.metric(
-        f"Implied Price ({active_scenario})",
-        f"Rp {active_res['implied_share_price']:,.0f}",
-        f"{active_res['upside_pct']:+.1f}% vs Rp {current_px:,.0f}",
-    )
-    v6.metric(
-        "Scenario Range (Bear–Bull)",
-        f"Rp {dcf_models['Bear']['implied_share_price']:,.0f} – {dcf_models['Bull']['implied_share_price']:,.0f}",
-        f"Base: Rp {dcf_models['Base']['implied_share_price']:,.0f}",
-    )
-
-    # 5-Year Explicit Forecast Table & UFCF Chart
-    f_col1, f_col2 = st.columns([1.25, 1.0], gap="medium")
-
-    with f_col1:
-        st.markdown(f"#### 📅 5-Year Explicit Cash Flow Forecast Table (`{active_scenario} Case`, IDR Billions)")
-        df_p = active_res["df_proj"].copy()
-        st.dataframe(
-            df_p[
-                [
-                    "Year",
-                    "Revenue",
-                    "EBITDA",
-                    "EBIT",
-                    "EBIT_Margin_Pct",
-                    "NOPAT",
-                    "DA",
-                    "CapEx",
-                    "NWC_Change",
-                    "UFCF",
-                    "PV_UFCF",
-                ]
-            ],
-            column_config={
-                "Year": st.column_config.TextColumn("Forecast Year"),
-                "Revenue": st.column_config.NumberColumn("Revenue", format="Rp %,.1fB"),
-                "EBITDA": st.column_config.NumberColumn("EBITDA", format="Rp %,.1fB"),
-                "EBIT": st.column_config.NumberColumn("EBIT", format="Rp %,.1fB"),
-                "EBIT_Margin_Pct": st.column_config.NumberColumn("EBIT Margin", format="%.2f%%"),
-                "NOPAT": st.column_config.NumberColumn("NOPAT", format="Rp %,.1fB"),
-                "DA": st.column_config.NumberColumn("D&A", format="Rp %,.1fB"),
-                "CapEx": st.column_config.NumberColumn("CapEx", format="Rp %,.1fB"),
-                "NWC_Change": st.column_config.NumberColumn("Δ NWC", format="Rp %,.1fB"),
-                "UFCF": st.column_config.NumberColumn("Unlevered FCF", format="Rp %,.1fB"),
-                "PV_UFCF": st.column_config.NumberColumn("PV of UFCF", format="Rp %,.1fB"),
-            },
-            use_container_width=True,
-            hide_index=True,
-        )
-
-    with f_col2:
-        fig_ufcf = make_subplots(specs=[[{"secondary_y": True}]])
-        fig_ufcf.add_trace(
-            go.Bar(x=df_p["Year"], y=df_p["Revenue"], name="Projected Revenue", marker_color=COLOR_BLUE, opacity=0.75),
-            secondary_y=False,
-        )
-        fig_ufcf.add_trace(
-            go.Bar(x=df_p["Year"], y=df_p["EBIT"], name="Projected EBIT", marker_color=COLOR_AMBER),
-            secondary_y=False,
-        )
-        fig_ufcf.add_trace(
-            go.Scatter(
-                x=df_p["Year"],
-                y=df_p["UFCF"],
-                name="Unlevered FCF (UFCF)",
-                mode="lines+markers",
-                line=dict(color=COLOR_TEAL, width=3),
-                marker=dict(size=9),
-            ),
-            secondary_y=True,
-        )
-        fig_ufcf.update_layout(
-            title=f"5-Year Revenue, EBIT & Unlevered FCF Trajectory ({active_scenario} Case)",
-            barmode="group",
-        )
-        fig_ufcf.update_yaxes(title_text="Revenue / EBIT (IDR B)", secondary_y=False)
-        fig_ufcf.update_yaxes(title_text="UFCF (IDR B)", secondary_y=True, showgrid=False)
-        st.plotly_chart(apply_plotly_theme(fig_ufcf, height=320), use_container_width=True)
-
-    # Football Field Valuation Chart & 2D Sensitivity Heatmap
-    b_col1, b_col2 = st.columns([1.05, 1.15], gap="medium")
-
-    with b_col1:
-        st.markdown("#### 🏈 Valuation Football Field Summary (IDR / Share)")
-        ff_methods = [
-            "52-Week Trading Range",
-            "Peer Comps P/E (14x–19x)",
-            "Peer EV/EBITDA (8.5x–12x)",
-            "DCF Bear Scenario",
-            "DCF Base Scenario",
-            "DCF Bull Scenario",
-        ]
-        ff_lows = [
-            9950.0,
-            11050.0,
-            10600.0,
-            dcf_models["Bear"]["implied_share_price"] * 0.94,
-            dcf_models["Base"]["implied_share_price"] * 0.94,
-            dcf_models["Bull"]["implied_share_price"] * 0.94,
-        ]
-        ff_highs = [
-            12450.0,
-            15030.0,
-            16500.0,
-            dcf_models["Bear"]["implied_share_price"] * 1.06,
-            dcf_models["Base"]["implied_share_price"] * 1.06,
-            dcf_models["Bull"]["implied_share_price"] * 1.06,
-        ]
-        ff_mids = [(l + h) / 2.0 for l, h in zip(ff_lows, ff_highs)]
-
-        fig_ff = go.Figure()
-        for idx, m_name in enumerate(ff_methods):
-            bar_color = COLOR_TEAL if active_scenario in m_name else COLOR_BLUE
-            fig_ff.add_trace(
-                go.Bar(
-                    y=[m_name],
-                    x=[ff_highs[idx] - ff_lows[idx]],
-                    base=[ff_lows[idx]],
-                    orientation="h",
-                    marker=dict(color=bar_color, opacity=0.82, line=dict(color="#F8FAFC", width=1)),
-                    name=m_name,
-                    text=f"Rp {ff_lows[idx]:,.0f} – Rp {ff_highs[idx]:,.0f} (Mid: Rp {ff_mids[idx]:,.0f})",
-                    textposition="inside",
-                    hovertemplate=f"<b>{m_name}</b><br>Low: Rp {ff_lows[idx]:,.0f}<br>Mid: Rp {ff_mids[idx]:,.0f}<br>High: Rp {ff_highs[idx]:,.0f}<extra></extra>",
-                )
-            )
-        fig_ff.add_vline(
-            x=current_px,
-            line_width=2.5,
-            line_dash="dash",
-            line_color=COLOR_RED,
-            annotation_text=f"Current: Rp {current_px:,.0f}",
-            annotation_position="top right",
-        )
-        fig_ff.update_layout(
-            title="Implied Share Price Range Across Methodologies (IDR)",
-            xaxis_title="Implied Share Price (IDR)",
-            showlegend=False,
-        )
-        st.plotly_chart(apply_plotly_theme(fig_ff, height=390), use_container_width=True)
-
-    with b_col2:
-        st.markdown(f"#### 🔥 2D Sensitivity Matrix: WACC vs. Terminal Growth (`{active_scenario} Case`)")
-        df_sens = active_res["df_sens"]
-        fig_heat = go.Figure(
-            data=go.Heatmap(
-                z=df_sens.values,
-                x=df_sens.columns.tolist(),
-                y=df_sens.index.tolist(),
-                colorscale=[
-                    [0.0, COLOR_RED],
-                    [0.45, "#1E293B"],
-                    [0.7, COLOR_BLUE],
-                    [1.0, COLOR_TEAL],
-                ],
-                text=[[f"Rp {val:,.0f}" for val in row] for row in df_sens.values],
-                texttemplate="%{text}",
-                textfont={"size": 11, "color": "#F8FAFC"},
-                hovertemplate="WACC: %{x}<br>Terminal Growth: %{y}<br>Implied Share Price: <b>%{text}</b><extra></extra>",
-            )
-        )
-        fig_heat.update_layout(
-            title="Implied Share Price Sensitivity Grid (WACC on X-Axis vs. Terminal g on Y-Axis)",
-            xaxis_title="Discount Rate — WACC (%)",
-            yaxis_title="Terminal Growth Rate — g (%)",
-        )
-        st.plotly_chart(apply_plotly_theme(fig_heat, height=390), use_container_width=True)
-
-    return dcf_models
-
-
-def render_tab4_peer_comps(db: dict):
-    """Renders Tab 4: IDX Consumer Sector Peer Comps Table & Relative Valuation Scatter Map."""
-    df_peers = db["peers"].copy()
-
-    st.markdown("### ⚖️ IDX Consumer Staples Comparable Companies Valuation Matrix")
-    st.caption(
-        "Benchmarking **ICBP** against Indonesian FMCG leaders (`INDF`, `MYOR`, `ULTJ`, `UNVR`, `CMRY`) across valuation multiples, return on capital, operating profitability, and dividend yield."
-    )
-
-    peer_ex_unvr = df_peers[df_peers["ticker"] != "UNVR"]
-    icbp_row = df_peers[df_peers["ticker"] == "ICBP"].iloc[0]
-    sector_med_pe = df_peers["pe_ttm"].median()
-    sector_med_ev = df_peers["ev_ebitda"].median()
-    sector_med_ebit_m = df_peers["ebit_margin_pct"].median()
-
-    p1, p2, p3, p4 = st.columns(4)
-    p1.metric(
-        "ICBP Trailing P/E vs. Sector Median",
-        f"{icbp_row['pe_ttm']:.2f}x",
-        f"{((icbp_row['pe_ttm'] - sector_med_pe)/sector_med_pe)*100:+.1f}% Relative Discount",
-    )
-    p2.metric(
-        "ICBP EV/EBITDA vs. Sector Median",
-        f"{icbp_row['ev_ebitda']:.2f}x",
-        f"{((icbp_row['ev_ebitda'] - sector_med_ev)/sector_med_ev)*100:+.1f}% Relative Discount",
-    )
-    p3.metric(
-        "ICBP EBIT Margin vs. Peers",
-        f"{icbp_row['ebit_margin_pct']:.2f}%",
-        f"{icbp_row['ebit_margin_pct'] - sector_med_ebit_m:+.2f}% Premium Margin",
-    )
-    p4.metric(
-        "Implied Relative P/E Fair Value",
-        f"Rp {791.0 * sector_med_pe:,.0f}",
-        f"At Peer Median {sector_med_pe:.1f}x P/E",
-    )
-
-    st.dataframe(
-        df_peers,
-        column_config={
-            "ticker": st.column_config.TextColumn("Ticker", width="small"),
-            "company_name": st.column_config.TextColumn("Company Name", width="medium"),
-            "market_cap_tn": st.column_config.NumberColumn("Market Cap (IDR T)", format="Rp %.2fT"),
-            "share_price_idr": st.column_config.NumberColumn("Price (IDR)", format="Rp %,.0f"),
-            "pe_ttm": st.column_config.NumberColumn("P/E (TTM)", format="%.2fx"),
-            "pe_fwd": st.column_config.NumberColumn("P/E (Fwd)", format="%.2fx"),
-            "ev_ebitda": st.column_config.NumberColumn("EV/EBITDA", format="%.2fx"),
-            "pbv": st.column_config.NumberColumn("P/BV", format="%.2fx"),
-            "roe_pct": st.column_config.NumberColumn("ROE (%)", format="%.2f%%"),
-            "roic_pct": st.column_config.NumberColumn("ROIC (%)", format="%.2f%%"),
-            "ebit_margin_pct": st.column_config.NumberColumn("EBIT Margin", format="%.2f%%"),
-            "ebitda_cagr_5y_pct": st.column_config.NumberColumn("5Y EBITDA CAGR", format="%+.2f%%"),
-            "div_yield_pct": st.column_config.NumberColumn("Div Yield", format="%.2f%%"),
-            "net_debt_to_ebitda": st.column_config.NumberColumn("Net Debt/EBITDA", format="%.2fx"),
-        },
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    st.markdown("---")
-    st.markdown("### 🗺️ Cross-Sectional Regression Valuation Map")
-    exclude_unvr_outlier = st.checkbox(
-        "Exclude UNVR capital-structure outlier (132.5% ROE / 26.4x P/BV) from ROE vs. P/BV regression line for clearer scaling",
-        value=True,
-    )
-
-    s_col1, s_col2 = st.columns(2, gap="medium")
-
-    with s_col1:
-        df_plot_roe = peer_ex_unvr.copy() if exclude_unvr_outlier else df_peers.copy()
-        x_roe = df_plot_roe["roe_pct"].values
-        y_pbv = df_plot_roe["pbv"].values
-        slope1, intercept1 = np.polyfit(x_roe, y_pbv, 1)
-        x_line1 = np.linspace(x_roe.min() * 0.9, x_roe.max() * 1.08, 50)
-        y_line1 = slope1 * x_line1 + intercept1
-
-        fig_sc1 = go.Figure()
-        fig_sc1.add_trace(
-            go.Scatter(
-                x=x_line1,
-                y=y_line1,
-                mode="lines",
-                name="OLS Regression Fair Value Line",
-                line=dict(color=COLOR_AMBER, width=2, dash="dash"),
-            )
-        )
-        for _, r in df_plot_roe.iterrows():
-            is_icbp = r["ticker"] == "ICBP"
-            fig_sc1.add_trace(
-                go.Scatter(
-                    x=[r["roe_pct"]],
-                    y=[r["pbv"]],
-                    mode="markers+text",
-                    name=r["ticker"],
-                    text=[r["ticker"]],
-                    textposition="top center",
-                    marker=dict(
-                        size=22 if is_icbp else 14,
-                        color=COLOR_TEAL if is_icbp else COLOR_BLUE,
-                        line=dict(width=2, color="#FFFFFF"),
-                    ),
-                    hovertemplate=(
-                        f"<b>{r['ticker']} — {r['company_name']}</b><br>"
-                        f"ROE: {r['roe_pct']:.2f}%<br>P/BV: {r['pbv']:.2f}x<br>"
-                        f"Market Cap: Rp {r['market_cap_tn']:.2f}T<extra></extra>"
-                    ),
-                )
-            )
-        fig_sc1.update_layout(
-            title="ROE (%) vs. Price-to-Book (P/BV) Regression Map",
-            xaxis_title="Return on Equity — ROE (%)",
-            yaxis_title="Price-to-Book Multiple — P/BV (x)",
-        )
-        st.plotly_chart(apply_plotly_theme(fig_sc1, height=400), use_container_width=True)
-
-    with s_col2:
-        x_gr = df_peers["ebitda_cagr_5y_pct"].values
-        y_ev = df_peers["ev_ebitda"].values
-        slope2, intercept2 = np.polyfit(x_gr, y_ev, 1)
-        x_line2 = np.linspace(x_gr.min() - 2.0, x_gr.max() + 2.0, 50)
-        y_line2 = slope2 * x_line2 + intercept2
-
-        fig_sc2 = go.Figure()
-        fig_sc2.add_trace(
-            go.Scatter(
-                x=x_line2,
-                y=y_line2,
-                mode="lines",
-                name="OLS Sector Growth-Multiple Line",
-                line=dict(color=COLOR_AMBER, width=2, dash="dash"),
-            )
-        )
-        for _, r in df_peers.iterrows():
-            is_icbp = r["ticker"] == "ICBP"
-            fig_sc2.add_trace(
-                go.Scatter(
-                    x=[r["ebitda_cagr_5y_pct"]],
-                    y=[r["ev_ebitda"]],
-                    mode="markers+text",
-                    name=r["ticker"],
-                    text=[r["ticker"]],
-                    textposition="top center",
-                    marker=dict(
-                        size=22 if is_icbp else 14,
-                        color=COLOR_TEAL if is_icbp else COLOR_BLUE,
-                        line=dict(width=2, color="#FFFFFF"),
-                    ),
-                    hovertemplate=(
-                        f"<b>{r['ticker']} — {r['company_name']}</b><br>"
-                        f"5Y EBITDA CAGR: {r['ebitda_cagr_5y_pct']:+.2f}%<br>"
-                        f"EV/EBITDA: {r['ev_ebitda']:.2f}x<br>"
-                        f"EBIT Margin: {r['ebit_margin_pct']:.2f}%<extra></extra>"
-                    ),
-                )
-            )
-        fig_sc2.update_layout(
-            title="5Y EBITDA CAGR (%) vs. EV/EBITDA (x) Valuation Map",
-            xaxis_title="5-Year Historical EBITDA CAGR (%)",
-            yaxis_title="Enterprise Value / EBITDA (x)",
-        )
-        st.plotly_chart(apply_plotly_theme(fig_sc2, height=400), use_container_width=True)
-
-
-def render_tab5_technicals_and_macro(db: dict, df_annual_ratios: pd.DataFrame):
-    """Renders Tab 5: Daily Candlestick + MA50/MA200 + RSI(14) + Volatility, and Interactive Macro Stress Tester."""
-    df_ohlcv = db["ohlcv"]
-    latest_fin = df_annual_ratios.iloc[-1]
-
-    st.markdown("### 📈 Technical Price Action, Moving Averages, RSI (14) & Volatility Suite")
-
-    lookback_map = {"6 Months (125D)": 125, "1 Year (252D)": 252, "Full History (750D)": len(df_ohlcv)}
-    sel_window = st.radio(
-        "Select Chart Horizon",
-        options=list(lookback_map.keys()),
-        index=1,
-        horizontal=True,
-    )
-    df_p = df_ohlcv.tail(lookback_map[sel_window]).copy()
-
-    latest_close = df_p.iloc[-1]["Close"]
-    latest_rsi = df_p.iloc[-1]["RSI14"]
-    latest_vol = df_p.iloc[-1]["Volatility30D_Pct"]
-    period_ret = ((latest_close / df_p.iloc[0]["Close"]) - 1.0) * 100.0
-
-    t1, t2, t3, t4 = st.columns(4)
-    t1.metric("Spot Close (ICBP.JK)", f"Rp {latest_close:,.0f}", f"{period_ret:+.2f}% Period Return")
-    t2.metric("MA50 / MA200 Trend", f"Rp {df_p.iloc[-1]['MA50']:,.0f}", f"MA200: Rp {df_p.iloc[-1]['MA200']:,.0f}")
-    t3.metric("RSI (14-Day)", f"{latest_rsi:.1f}", "Neutral / Bullish Momentum" if 40 <= latest_rsi <= 70 else "Extreme Zone")
-    t4.metric("30D Annualized Volatility", f"{latest_vol:.2f}%", f"Max Drawdown: {df_p['Drawdown_Pct'].min():.2f}%")
-
-    fig_tech = make_subplots(
-        rows=4,
-        cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.035,
-        row_heights=[0.46, 0.16, 0.19, 0.19],
-        subplot_titles=(
-            "ICBP.JK Daily Candlestick with MA50 & MA200",
-            "Trading Volume (Shares)",
-            "Relative Strength Index — RSI (14)",
-            "Rolling 30D Annualized Volatility (%)",
-        ),
-    )
-
-    fig_tech.add_trace(
-        go.Candlestick(
-            x=df_p["Date"],
-            open=df_p["Open"],
-            high=df_p["High"],
-            low=df_p["Low"],
-            close=df_p["Close"],
-            name="OHLC",
-            increasing_line_color=COLOR_TEAL,
-            decreasing_line_color=COLOR_RED,
-        ),
-        row=1,
-        col=1,
-    )
-    fig_tech.add_trace(
-        go.Scatter(x=df_p["Date"], y=df_p["MA50"], name="MA50", line=dict(color=COLOR_BLUE, width=2)),
-        row=1,
-        col=1,
-    )
-    fig_tech.add_trace(
-        go.Scatter(x=df_p["Date"], y=df_p["MA200"], name="MA200", line=dict(color=COLOR_AMBER, width=2)),
-        row=1,
-        col=1,
-    )
-
-    vol_colors = [
-        COLOR_TEAL if c >= o else COLOR_RED for c, o in zip(df_p["Close"], df_p["Open"])
-    ]
-    fig_tech.add_trace(
-        go.Bar(x=df_p["Date"], y=df_p["Volume"], name="Volume", marker_color=vol_colors, opacity=0.75),
-        row=2,
-        col=1,
-    )
-
-    fig_tech.add_trace(
-        go.Scatter(x=df_p["Date"], y=df_p["RSI14"], name="RSI (14)", line=dict(color=COLOR_BLUE, width=2)),
-        row=3,
-        col=1,
-    )
-    fig_tech.add_hline(y=70, line_dash="dash", line_color=COLOR_RED, row=3, col=1)
-    fig_tech.add_hline(y=30, line_dash="dash", line_color=COLOR_TEAL, row=3, col=1)
-
-    fig_tech.add_trace(
-        go.Scatter(
-            x=df_p["Date"],
-            y=df_p["Volatility30D_Pct"],
-            name="30D Ann. Volatility %",
-            fill="tozeroy",
-            line=dict(color=COLOR_AMBER, width=2),
-        ),
-        row=4,
-        col=1,
-    )
-
-    fig_tech.update_layout(xaxis_rangeslider_visible=False)
-    st.plotly_chart(apply_plotly_theme(fig_tech, height=680), use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("### 🌍 Macro & Commodity Shock Sensitivity Simulator")
-    st.caption(
-        "Simulate the earnings and margin impact of shocks to **USD/IDR exchange rate**, **Global Wheat prices**, **CPO palm oil costs**, **BI Policy Rate**, and **Domestic Inflation**."
-    )
-
-    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-    fx_shock_pct = m_col1.slider("USD/IDR Depreciation Shock (%)", -10.0, 15.0, 5.0, 0.5)
-    wheat_shock_pct = m_col2.slider("Global Wheat Price Shock (%)", -20.0, 30.0, 10.0, 1.0)
-    cpo_shock_pct = m_col3.slider("CPO Palm Oil Price Shock (%)", -20.0, 30.0, 8.0, 1.0)
-    bi_rate_bps = m_col4.slider("BI Policy Rate Change (bps)", -150, 200, 50, 25)
-
-    # Quantitative Factor Sensitivities (Calibrated to ICBP Cost & Debt Structure)
-    # 1. Wheat accounts for ~28% of COGS; 50% hedged/passed through -> Net COGS elasticity = 0.14
-    # 2. CPO accounts for ~18% of COGS; 55% passed through -> Net COGS elasticity = 0.081
-    # 3. FX depreciation increases imported raw materials (35% of COGS) but boosts Pinehill USD revenue (31.6% of Rev)
-    base_rev = latest_fin["revenue"]
-    base_cogs = latest_fin["cogs"]
-    base_gm = latest_fin["gross_margin_pct"]
-    base_ni = latest_fin["net_income_parent"]
-    base_eps = latest_fin["eps"]
-
-    delta_rev_fx = base_rev * 0.316 * (fx_shock_pct / 100.0)
-    delta_cogs_wheat = base_cogs * 0.14 * (wheat_shock_pct / 100.0)
-    delta_cogs_cpo = base_cogs * 0.081 * (cpo_shock_pct / 100.0)
-    delta_cogs_fx = base_cogs * 0.18 * (fx_shock_pct / 100.0)
-    # USD Bond translation impact (~$2.75B bond portfolio, partially hedged)
-    delta_fx_bond_translation = -1250.0 * (fx_shock_pct / 5.0)
-    delta_interest_bi = -latest_fin["short_term_debt"] * (bi_rate_bps / 10000.0)
-
-    sim_rev = base_rev + delta_rev_fx
-    sim_cogs = base_cogs + delta_cogs_wheat + delta_cogs_cpo + delta_cogs_fx
-    sim_gp = sim_rev - sim_cogs
-    sim_gm = (sim_gp / sim_rev) * 100.0
-    gm_change_bps = (sim_gm - base_gm) * 100.0
-
-    pre_tax_impact = (sim_gp - latest_fin["gross_profit"]) + delta_fx_bond_translation + delta_interest_bi
-    after_tax_ni_impact = pre_tax_impact * (1.0 - 0.22)
-    sim_ni = base_ni + after_tax_ni_impact
-    sim_eps = (sim_ni / latest_fin["shares_out_bn"])
-    eps_change_pct = ((sim_eps - base_eps) / base_eps) * 100.0
-
-    s1, s2, s3, s4 = st.columns(4)
-    s1.metric("Simulated Gross Margin", f"{sim_gm:.2f}%", f"{gm_change_bps:+.0f} bps vs FY2025")
-    s2.metric("Simulated COGS Impact", f"Rp {sim_cogs - base_cogs:+,.1f}B", f"Total COGS: Rp {sim_cogs:,.1f}B")
-    s3.metric("Simulated Net Income", f"Rp {sim_ni:,.1f}B", f"Rp {after_tax_ni_impact:+,.1f}B Net Impact")
-    s4.metric("Simulated Diluted EPS", f"Rp {sim_eps:,.0f}", f"{eps_change_pct:+.2f}% vs Base EPS")
-
-    mac_c1, mac_c2 = st.columns(2, gap="medium")
-    with mac_c1:
-        waterfall_factors = [
-            "Base FY25 Net Income",
-            "Pinehill FX Revenue Lift",
-            "Wheat COGS Impact",
-            "CPO COGS Impact",
-            "Imported Input FX COGS",
-            "USD Bond FX Translation",
-            "BI Rate Interest Impact",
-            "Simulated Net Income",
-        ]
-        tax_mult = 1.0 - 0.22
-        fig_wf = go.Figure(
-            go.Waterfall(
-                orientation="v",
-                measure=["absolute", "relative", "relative", "relative", "relative", "relative", "relative", "total"],
-                x=waterfall_factors,
-                y=[
-                    base_ni,
-                    delta_rev_fx * tax_mult,
-                    -delta_cogs_wheat * tax_mult,
-                    -delta_cogs_cpo * tax_mult,
-                    -delta_cogs_fx * tax_mult,
-                    delta_fx_bond_translation * tax_mult,
-                    delta_interest_bi * tax_mult,
-                    0,
-                ],
-                decreasing={"marker": {"color": COLOR_RED}},
-                increasing={"marker": {"color": COLOR_TEAL}},
-                totals={"marker": {"color": COLOR_BLUE}},
-            )
-        )
-        fig_wf.update_layout(
-            title="Macro & Commodity Shock Attribution Bridge on Net Income (IDR B)",
-            yaxis_title="Net Income (IDR Billions)",
-        )
-        st.plotly_chart(apply_plotly_theme(fig_wf, height=370), use_container_width=True)
-
-    with mac_c2:
-        corr_cols = ["gross_margin_pct", "ebit_margin_pct", "usd_idr", "wheat_usd_mt", "cpo_myr_mt", "bi_rate_pct"]
-        corr_labels = ["Gross Margin %", "EBIT Margin %", "USD/IDR", "Wheat ($/MT)", "CPO (MYR/T)", "BI Rate %"]
-        corr_mat = df_annual_ratios[corr_cols].corr().round(2)
-
-        fig_corr = go.Figure(
-            data=go.Heatmap(
-                z=corr_mat.values,
-                x=corr_labels,
-                y=corr_labels,
-                colorscale=[[0.0, COLOR_RED], [0.5, "#1E293B"], [1.0, COLOR_TEAL]],
-                zmin=-1,
-                zmax=1,
-                text=corr_mat.values,
-                texttemplate="%{text:.2f}",
-                textfont={"size": 12},
-            )
-        )
-        fig_corr.update_layout(title="5-Year Empirical Macro-Margin Correlation Matrix (2021–2025)")
-        st.plotly_chart(apply_plotly_theme(fig_corr, height=370), use_container_width=True)
-
-
-def render_tab6_audit_and_docs(db: dict, df_annual_ratios: pd.DataFrame, df_quarterly_ratios: pd.DataFrame, dcf_models: dict):
-    """Renders Tab 6: Automated Accounting & Valuation Audit Checks, Research Note & Portfolio README."""
-    st.markdown("### 🛡️ Automated Financial Integrity & Calculation Audit Suite")
-    st.caption(
-        "Real-time programmatic assertions verifying Balance Sheet equilibrium, Free Cash Flow reconciliation, DCF convergence, and database completeness."
-    )
-
-    # Run automated checks
-    max_bs_diff_ann = float(df_annual_ratios["bs_audit_diff"].abs().max())
-    max_bs_diff_qtr = float(df_quarterly_ratios["bs_audit_diff"].abs().max())
-    fcf_ident_diff = float((df_annual_ratios["fcf_accounting"] - (df_annual_ratios["cfo"] - df_annual_ratios["capex"])).abs().max())
-    base_dcf = dcf_models["Base"]
-    ev_reconcile_diff = abs(base_dcf["enterprise_value"] - (base_dcf["sum_pv_ufcf"] + base_dcf["pv_terminal_value"]))
-    total_nulls = int(
-        db["annual"].isna().sum().sum()
-        + db["quarterly"].isna().sum().sum()
-        + db["peers"].isna().sum().sum()
-    )
-
-    checks = [
-        (
-            "1. Annual & Quarterly Balance Sheet Identity (Assets == Liabilities + Equity)",
-            max_bs_diff_ann < 1e-4 and max_bs_diff_qtr < 1e-4,
-            f"Max Annual Discrepancy: Rp {max_bs_diff_ann:.4f}B | Max Quarterly Discrepancy: Rp {max_bs_diff_qtr:.4f}B (100% Balanced)",
-        ),
-        (
-            "2. Cash Flow Statement & FCF Reconciliation (FCF == CFO - CapEx & UFCF == NOPAT + D&A - CapEx - ΔNWC)",
-            fcf_ident_diff < 1e-4,
-            f"Max Cash Flow Reconciliation Variance: Rp {fcf_ident_diff:.4f}B across all 13 reporting periods.",
-        ),
-        (
-            "3. Two-Stage DCF Valuation Convergence (EV == Σ PV(UFCF) + PV(Terminal Value) & WACC > Terminal g)",
-            ev_reconcile_diff < 1e-4,
-            f"Enterprise Value Variance: Rp {ev_reconcile_diff:.4f}B | Bull > Base > Bear monotonicity verified.",
-        ),
-        (
-            "4. Relational SQLite3 Database Completeness & Non-Null Assertion",
-            total_nulls == 0,
-            f"Total Missing / NaN cells across 6 SQLite tables (Annual, Quarterly, Segments, Geo, Peers, Macro): {total_nulls}",
-        ),
-    ]
-
-    for title, passed, detail in checks:
-        status_icon = "✅ PASS" if passed else "❌ FAIL"
-        st.markdown(
-            f"""
-            <div class="audit-pass">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <strong style="color:#F8FAFC; font-size:0.94rem;">{title}</strong>
-                    <span style="color:#00F5D4; font-weight:800; font-size:0.86rem;">{status_icon}</span>
-                </div>
-                <div style="color:#CBD5E1; font-size:0.84rem; margin-top:4px;">{detail}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("---")
-    doc_col1, doc_col2 = st.columns(2, gap="medium")
-
-    research_note_md = f"""# Institutional Equity Research Note: PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP)
-
-**Date:** {datetime.now().strftime('%Y-%m-%d')}  
-**Ticker:** ICBP.JK | **Sector:** Consumer Staples (Packaged Foods)  
-**Current Price:** Rp 11,400 | **Base Target Price:** Rp {base_dcf['implied_share_price']:,.0f} ({base_dcf['upside_pct']:+.1f}%)  
-**Recommendation:** **BUY (High Conviction)**
-
----
-
-## 1. Executive Investment Thesis
-PT Indofood CBP Sukses Makmur Tbk (`ICBP`) is the premier consumer staples compounder in Indonesia and the Middle East/Africa region. Backed by >70% domestic market share in instant noodles and vertically integrated with the Salim Group's flour milling and distribution ecosystem, ICBP generated **Rp 74,850.9 Billion** in FY2025 revenue and **Rp 16,655.5 Billion** in Operating Profit (22.25% EBIT Margin).
-
-## 2. Valuation Summary (Two-Stage DCF)
-- **Bull Case Target Price:** Rp {dcf_models['Bull']['implied_share_price']:,.0f} ({dcf_models['Bull']['upside_pct']:+.1f}%)
-- **Base Case Target Price:** Rp {dcf_models['Base']['implied_share_price']:,.0f} ({dcf_models['Base']['upside_pct']:+.1f}%)
-- **Bear Case Target Price:** Rp {dcf_models['Bear']['implied_share_price']:,.0f} ({dcf_models['Bear']['upside_pct']:+.1f}%)
-
-## 3. Key Catalysts & Risks
-- **Catalysts:** Continued double-digit volume expansion in Pinehill MENA/Africa markets, benign global wheat prices, and steady balance sheet de-leveraging (Net Debt/EBITDA at 0.90x).
-- **Risks:** Sharp USD/IDR depreciation impacting non-cash Eurobond translation, El Niño soft commodity spikes, and domestic purchasing power softness.
+def macro_correlation(price: pd.DataFrame, macro: pd.DataFrame) -> pd.DataFrame:
+    p = price.copy()
+    p["m"] = p["trade_date"].dt.to_period("M")
+    pm = p.groupby("m")["close"].last().pct_change()
+    m = macro.copy()
+    m["m"] = m["obs_date"].dt.to_period("M")
+    m = m.set_index("m")
+    ch = pd.DataFrame({
+        "ICBP return": pm, "USD/IDR": m["usdidr"].pct_change(), "Wheat": m["wheat_usd_bu"].pct_change(),
+        "CPO": m["cpo_usd_t"].pct_change(), "BI rate (chg)": m["bi_rate_pct"].diff(),
+        "Inflation (chg)": m["inflation_yoy_pct"].diff(),
+    }).dropna()
+    return ch.corr()
+
+
+def add_indicators(px: pd.DataFrame) -> pd.DataFrame:
+    d = px.copy()
+    c = d["close"]
+    d["ma50"], d["ma200"] = c.rolling(50).mean(), c.rolling(200).mean()
+    delta = c.diff()
+    gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
+    ag = gain.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    al = loss.ewm(alpha=1 / 14, adjust=False, min_periods=14).mean()
+    d["rsi"] = 100 - 100 / (1 + ag / al)
+    d["vol30"] = c.pct_change().rolling(30).std() * np.sqrt(252) * 100
+    return d
+
+
+# =============================================================================
+# 4. SESSION STATE / SCENARIOS
+# =============================================================================
+SCENARIO_DEFAULTS = {
+    "Bull": dict(rev_cagr=8.0, ebit_margin=18.5, wacc=9.5, tg=3.5, capex_pct=4.5),
+    "Base": dict(rev_cagr=6.5, ebit_margin=17.5, wacc=10.0, tg=3.0, capex_pct=4.8),
+    "Bear": dict(rev_cagr=4.0, ebit_margin=15.5, wacc=10.75, tg=2.5, capex_pct=5.2),
+}
+SLIDER_SPECS = [("rev_cagr", "Revenue CAGR %", 0.0, 15.0), ("ebit_margin", "Target EBIT Margin %", 8.0, 25.0),
+                ("wacc", "WACC %", 6.0, 15.0), ("tg", "Terminal Growth %", 0.0, 6.0),
+                ("capex_pct", "CapEx % of Sales", 2.0, 10.0)]
+
+
+def init_state() -> None:
+    st.session_state.setdefault("period", "Annual (5Y)")
+    st.session_state.setdefault("scenario", "Base")
+    for scn, d in SCENARIO_DEFAULTS.items():
+        for k, v in d.items():
+            st.session_state.setdefault(f"{scn}_{k}", float(v))
+
+
+def reset_scenarios() -> None:
+    for scn, d in SCENARIO_DEFAULTS.items():
+        for k, v in d.items():
+            st.session_state[f"{scn}_{k}"] = float(v)
+
+
+def get_assumptions(scn: str) -> dict:
+    return {k: st.session_state[f"{scn}_{k}"] / 100 for k in SCENARIO_DEFAULTS["Base"]}
+
+
+# =============================================================================
+# 5. CONTEXT ASSEMBLY (comps, football field, KPIs, validation, documents)
+# =============================================================================
+def build_comps(ctx: dict) -> pd.DataFrame:
+    fin, ltm, base, price = ctx["fin"], ctx["ltm"]["cur"], ctx["base"], ctx["last_close"]
+    base_fc = ctx["dcf"]["Base"]["forecast"]
+    nopat0 = base["revenue"] * base["ebit_margin"] * (1 - base["tax"])
+    fwd_eps = ltm["eps"] * base_fc["nopat"].iloc[0] / nopat0
+    ebitda0 = float(fin.iloc[-1]["ebitda"])
+    fwd_ebitda = ltm["ebitda"] * (base_fc["ebit"].iloc[0] + base_fc["da"].iloc[0]) / ebitda0
+    ctx["fwd_eps"], ctx["fwd_ebitda"] = fwd_eps, fwd_ebitda
+    mcap_bn = price * base["shares_bn"]
+    ev = mcap_bn + base["net_debt"] + base["nci_fv"]
+    l = fin.iloc[-1]
+    icbp = dict(ticker="ICBP", name=COMPANY, mcap_tn=mcap_bn / 1000, pe_ttm=price / ltm["eps"], pe_fwd=price / fwd_eps,
+                ev_ebitda=ev / ltm["ebitda"], pbv=price / l["bvps"], roe=ltm["roe"] * 100,
+                op_margin=ltm["ebit"] / ltm["revenue"] * 100, div_yield=l["dps"] / price * 100,
+                ebitda_growth=(ltm["ebitda"] / ctx["ltm"]["prv"]["ebitda"] - 1) * 100)
+    comps = pd.concat([pd.DataFrame([icbp]), ctx["data"]["peers"]], ignore_index=True)
+    return comps
+
+
+def football_field_data(ctx: dict) -> pd.DataFrame:
+    px, comps, base = ctx["data"]["price"], ctx["comps"], ctx["base"]
+    peers = comps[comps["ticker"] != "ICBP"]
+    dcf_prices = [ctx["dcf"][s]["price"] for s in SCENARIOS]
+    last252 = px.tail(252)
+    pe_lo, pe_hi = peers["pe_fwd"].quantile([0.25, 0.75]) * ctx["fwd_eps"]
+    ev_lo, ev_hi = peers["ev_ebitda"].quantile([0.25, 0.75]) * ctx["ltm"]["cur"]["ebitda"]
+    to_px = lambda ev: (ev - base["net_debt"] - base["nci_fv"]) / base["shares_bn"]
+    return pd.DataFrame([
+        ("DCF (Bear - Bull)", min(dcf_prices), max(dcf_prices)),
+        ("52-Week Trading Range", last252["low"].min(), last252["high"].max()),
+        ("P/E Fwd (peer IQR)", pe_lo, pe_hi),
+        ("EV/EBITDA TTM (peer IQR)", to_px(ev_lo), to_px(ev_hi)),
+    ], columns=["method", "low", "high"])
+
+
+def kpi_values(ctx: dict) -> list[tuple[str, str, str]]:
+    fin, ltm = ctx["fin"], ctx["ltm"]
+    pct = lambda a, b: f"{(a / b - 1) * 100:+.1f}%"
+    pp = lambda a, b: f"{(a - b) * 100:+.1f} pp"
+    if ctx["period"].startswith("Annual"):
+        l, p = fin.iloc[-1], fin.iloc[-2]
+        return [("Revenue", fmt_idr(l.revenue), pct(l.revenue, p.revenue)),
+                ("EBIT", fmt_idr(l.ebit), pct(l.ebit, p.ebit)),
+                ("Net Income", fmt_idr(l.net_income_parent), pct(l.net_income_parent, p.net_income_parent)),
+                ("Free Cash Flow", fmt_idr(l.fcf), pct(l.fcf, p.fcf)),
+                ("ROE", f"{l.roe:.1%}", pp(l.roe, p.roe)), ("ROIC", f"{l.roic:.1%}", pp(l.roic, p.roic))]
+    c, p = ltm["cur"], ltm["prv"]
+    return [("Revenue (LTM)", fmt_idr(c["revenue"]), pct(c["revenue"], p["revenue"])),
+            ("EBIT (LTM)", fmt_idr(c["ebit"]), pct(c["ebit"], p["ebit"])),
+            ("Net Income (LTM)", fmt_idr(c["net_income_parent"]), pct(c["net_income_parent"], p["net_income_parent"])),
+            ("FCF (LTM)", fmt_idr(c["fcf"]), pct(c["fcf"], p["fcf"])),
+            ("ROE (LTM)", f"{c['roe']:.1%}", pp(c["roe"], p["roe"])),
+            ("ROIC (LTM)", f"{c['roic']:.1%}", pp(c["roic"], p["roic"]))]
+
+
+def run_validation(ctx: dict) -> pd.DataFrame:
+    fin, data, checks = ctx["fin"], ctx["data"], []
+
+    def add(name: str, ok: bool, detail: str) -> None:
+        checks.append({"Check": name, "Status": "✅ PASS" if ok else "❌ FAIL", "Detail": detail})
+
+    bs_diff = (fin["total_assets"] - fin["total_liabilities"] - fin["total_equity"]).abs().max()
+    add("Balance sheet: Assets = Liabilities + Equity", bs_diff < 0.5, f"max |difference| = {bs_diff:.3f} bn (tolerance 0.5)")
+    cash_diff = (fin["cash"].diff() - fin["net_change_cash"]).abs().iloc[1:].max()
+    add("Cash roll-forward ties to cash-flow statement", cash_diff < 0.6, f"max |difference| = {cash_diff:.3f} bn")
+    gp_d = (fin["revenue"] - fin["cogs"] - fin["gross_profit"]).abs().max()
+    eb_d = (fin["ebit"] + fin["da"] - fin["ebitda"]).abs().max()
+    ni_d = (fin["pretax_income"] - fin["tax"] - fin["net_income"]).abs().max()
+    add("Income statement identities (GP, EBITDA, NI)", max(gp_d, eb_d, ni_d) < 0.3, f"max rounding gap = {max(gp_d, eb_d, ni_d):.3f} bn")
+    fcf_d = (fin["cfo"] - fin["capex"] - fin["fcf"]).abs().max()
+    add("FCF = CFO - CapEx", fcf_d < 0.2, f"max |difference| = {fcf_d:.3f} bn")
+    nulls = {k: int(v.isna().sum().sum()) for k, v in data.items()}
+    add("Missing-value assertion (all SQL outputs)", sum(nulls.values()) == 0, f"NaN counts: {nulls}")
+    for scn in SCENARIOS:
+        r = ctx["dcf"][scn]
+        a, fc = r["assumptions"], r["forecast"]
+        pv = sum(u / (1 + a["wacc"]) ** i for i, u in enumerate(fc["ufcf"], start=1))
+        tv = fc["ufcf"].iloc[-1] * (1 + a["tg"]) / max(a["wacc"] - a["tg"], 0.005)
+        ev_chk = pv + tv / (1 + a["wacc"]) ** 5
+        px_chk = (ev_chk - r["net_debt"] - r["nci_fv"]) / ctx["base"]["shares_bn"]
+        add(f"DCF reconciliation - {scn}", abs(ev_chk - r["ev"]) < 1e-6 * r["ev"] and abs(px_chk - r["price"]) < 1e-6 * r["price"],
+            f"EV {r['ev']:,.0f} vs independent {ev_chk:,.0f}; price {r['price']:,.0f} vs {px_chk:,.0f}")
+    act = ctx["dcf"][ctx["scenario"]]
+    waccs, gs, z = sensitivity_grid(ctx["base"], act["assumptions"], ctx["last_close"])
+    centre = z[int(np.argmin(abs(gs - act["assumptions"]["tg"]))), int(np.argmin(abs(waccs - act["assumptions"]["wacc"])))]
+    add("Sensitivity heatmap centre = active DCF price", abs(centre - act["price"]) < 1e-6 * act["price"], f"{centre:,.0f} vs {act['price']:,.0f}")
+    seg_ok = (data["segments"].groupby("fiscal_year")["share"].sum() - 1).abs().max() < 1e-6
+    geo_ok = (data["geo"].groupby("fiscal_year")["share"].sum() - 1).abs().max() < 1e-6
+    add("Segment & geographic mix sum to 100%", bool(seg_ok and geo_ok), "per fiscal year")
+    px = data["price"]
+    ohlc_ok = bool((px["high"] >= px[["open", "close"]].max(axis=1)).all() and (px["low"] <= px[["open", "close"]].min(axis=1)).all() and (px["volume"] > 0).all())
+    add("Price OHLCV integrity (H>=O,C; L<=O,C; volume>0)", ohlc_ok, f"{len(px):,} daily bars")
+    q25 = data["quarterly"][data["quarterly"]["period"].str.startswith("2025")]["revenue"].sum()
+    add("FY2025 quarterly revenue reconciles to annual", abs(q25 - fin.iloc[-1]["revenue"]) / fin.iloc[-1]["revenue"] < 0.01,
+        f"sum of quarters {q25:,.0f} vs annual {fin.iloc[-1]['revenue']:,.0f}")
+    add("Peer table completeness", len(data["peers"]) == 5, f"{len(data['peers'])} peers loaded")
+    return pd.DataFrame(checks)
+
+
+def build_research_note(ctx: dict) -> str:
+    l, res, sc = ctx["fin"].iloc[-1], ctx["dcf"][ctx["scenario"]], ctx["scenario"]
+    a = res["assumptions"]
+    comps, c = ctx["comps"], ctx["comps"].iloc[0]
+    peers = comps[comps["ticker"] != "ICBP"]
+    scen_rows = "\n".join(
+        f"| {s} | {ctx['dcf'][s]['assumptions']['rev_cagr']:.1%} | {ctx['dcf'][s]['assumptions']['ebit_margin']:.1%} | "
+        f"{ctx['dcf'][s]['assumptions']['wacc']:.2%} | {ctx['dcf'][s]['assumptions']['tg']:.1%} | "
+        f"{ctx['dcf'][s]['price']:,.0f} | {ctx['dcf'][s]['upside']:+.1%} |" for s in SCENARIOS)
+    return f"""# {COMPANY} ({TICKER}) - Equity Research Note
+**Date:** {AS_OF:%d %B %Y}  |  **Rating:** {ctx['rating']}  |  **Target Price:** IDR {ctx['tp']:,.0f}  |  **Last Close:** IDR {ctx['last_close']:,.0f}  |  **Upside:** {ctx['tp'] / ctx['last_close'] - 1:+.1%}
+
+> Illustrative research note built on SYNTHETIC data. Not investment advice.
+
+## Recommendation ({sc} case)
+We rate ICBP **{ctx['rating']}** with a DCF-derived target price of IDR {ctx['tp']:,.0f}. The shares trade at {c['pe_fwd']:.1f}x forward P/E and {c['ev_ebitda']:.1f}x TTM EV/EBITDA versus peer medians of {peers['pe_fwd'].median():.1f}x and {peers['ev_ebitda'].median():.1f}x.
+
+## Investment Thesis
+1. **Defensible moat:** category-leading instant-noodle brands, nationwide distribution and procurement scale.
+2. **Pinehill international runway:** Middle East & Africa now contributes {ctx['mea_share']:.1%} of sales (from {ctx['mea_share_start']:.1%} in FY{FISCAL_YEARS[0]}).
+3. **Margin and returns:** EBIT margin {l['ebit_margin']:.1%}; ROIC {l['roic']:.1%} versus a {a['wacc']:.2%} WACC ({scenario_spread(l['roic'], a['wacc'])}).
+4. **Fortress balance sheet:** net debt / EBITDA {l['net_debt_ebitda']:.2f}x; interest cover {l['interest_cov']:.1f}x.
+
+## Financial Snapshot (FY{int(l['fiscal_year'])}, IDR bn)
+| Revenue | EBIT | Net income (parent) | FCF | ROE | EPS (IDR) |
+|---|---|---|---|---|---|
+| {l['revenue']:,.0f} | {l['ebit']:,.0f} | {l['net_income_parent']:,.0f} | {l['fcf']:,.0f} | {l['roe']:.1%} | {l['eps']:,.0f} |
+
+## Valuation Scenarios
+| Scenario | Rev CAGR | Target EBIT margin | WACC | Terminal g | Value / share (IDR) | Upside |
+|---|---|---|---|---|---|---|
+{scen_rows}
+
+Active-case enterprise value IDR {res['ev']:,.0f}bn; terminal value is {res['tv_share']:.0%} of EV (implied TV/EBITDA {res['tv_ebitda']:.1f}x).
+
+## Key Risks
+- **FX / USD exposure:** unhedged USD debt and USD-linked wheat and packaging costs.
+- **Commodity inflation:** wheat and CPO are the largest COGS lines; pass-through lags by 2-3 quarters.
+- **Consumer purchasing power:** volume elasticity to inflation in the low-income consumer base.
+- **Competition and trade-down:** price wars in instant noodles; private-label risk.
 """
 
-    readme_template_md = """# IDX Equity Research & Valuation Terminal — PT Indofood CBP (IDX: ICBP)
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.35%2B-FF4B4B)
-![SQLite3](https://img.shields.io/badge/Database-SQLite3-00F5D4)
+def scenario_spread(roic: float, wacc: float) -> str:
+    return f"{(roic - wacc) * 100:+.1f} pp spread"
 
-## Overview
-An institutional-grade quantitative equity research and valuation terminal built in Python and Streamlit for **PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP)**. Features an automated in-memory `sqlite3` financial pipeline, DuPont ROE & ROIC decomposition, multi-scenario Two-Stage DCF modeling, cross-sectional peer regression maps, and technical/macro risk simulators.
 
-## Quickstart
-```bash
+def build_readme() -> str:
+    f = "`" * 3
+    return f"""# ICBP Equity Research & Valuation Terminal
+
+An institutional-style Streamlit dashboard for **PT Indofood CBP Sukses Makmur Tbk (IDX: ICBP)** covering
+fundamentals, 3-scenario DCF, peer comps, technicals and macro sensitivities.
+
+> All financial, price, macro and peer data is **synthetic** (generated in code, calibrated to ICBP's rough scale).
+> This project is for portfolio/educational use and is not investment advice.
+
+## Features
+- **SQLite pipeline:** raw tables (IDR mn) -> cleaned SQL views (IDR bn, derived subtotals) -> pandas
+- **6 tabs:** Executive Summary, 5Y Fundamentals, DCF Engine, Peer Comps, Technicals & Macro, Data Provenance
+- **DCF:** Bull/Base/Bear sliders, football field, WACC x terminal-growth heatmap
+- **Macro model:** USD/IDR, wheat, CPO, BI rate and inflation -> COGS, gross margin and EPS (waterfall + tornado)
+- **Audit:** automated balance-sheet, cash roll-forward, DCF reconciliation and missing-value checks
+
+## Quick start
+{f}bash
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
 streamlit run app.py
-```
+{f}
 
-## Core Architecture
-1. `init_sql_db()`: Self-contained relational SQLite3 pipeline populating 5Y annual & 8Q interim financial statements, segment breakdowns, peer multiples, and 750-day OHLCV market data.
-2. `compute_financial_ratios()`: Automated DuPont ROE, ROIC vs. WACC EVA spread, solvency, and Cash Conversion Cycle engine.
-3. `run_dcf_model()`: Interactive Bull/Base/Bear 5-year UFCF forecasting engine with 2D WACC vs. Terminal Growth sensitivity matrix.
+## Project structure
+{f}text
+app.py             # entire application (init_sql_db, compute_financial_ratios, run_dcf_model, render_tabs)
+requirements.txt
+.streamlit/config.toml   # optional dark theme
+{f}
+
+## Methodology notes
+- EBIT margin glides linearly to the target; NWC change = NWC % of sales x change in revenue.
+- Terminal value uses Gordon growth; equity bridge deducts net debt and NCI (1.5x book).
+- Rating: BUY if upside >= 15%, SELL if <= -10%, otherwise HOLD (target price rounded to IDR 50).
+
+## Disclaimer
+Educational demo using fabricated data. Replace `init_sql_db()` generators with licensed data feeds before any real use.
 """
 
-    with doc_col1:
-        st.markdown("### 📝 Exportable Equity Research Note (`.md`)")
-        st.download_button(
-            "📥 Download Equity Research Note (Markdown)",
-            data=research_note_md.encode("utf-8"),
-            file_name="ICBP_Equity_Research_Note.md",
-            mime="text/markdown",
-            use_container_width=True,
-        )
-        st.code(research_note_md, language="markdown")
 
-    with doc_col2:
-        st.markdown("### 📦 Portfolio GitHub `README.md` Template")
-        st.download_button(
-            "📥 Download Portfolio README.md",
-            data=readme_template_md.encode("utf-8"),
-            file_name="README_Template.md",
-            mime="text/markdown",
-            use_container_width=True,
-        )
-        st.code(readme_template_md, language="markdown")
-
-
-# ==============================================================================
-# 6. MAIN APPLICATION ORCHESTRATOR & SIDEBAR CONTROLS
-# ==============================================================================
-def render_tabs():
-    """Main orchestrator initializing SQLite database, sidebar controls, and the 6 analytical tabs."""
-    db = init_sql_db()
-    df_annual_ratios = compute_financial_ratios(db["annual"], is_quarterly=False)
-    df_quarterly_ratios = compute_financial_ratios(db["quarterly"], is_quarterly=True)
-
-    current_share_price = 11400.0
-    latest_ann = df_annual_ratios.iloc[-1]
-
-    # Pre-calculate default scenario DCF for sidebar header synchronization
-    default_params = {
-        "Bull": (10.2, 24.0, 7.8, 4.2, 4.2),
-        "Base": (7.8, 22.5, 8.5, 3.5, 4.5),
-        "Bear": (4.8, 19.2, 9.5, 2.5, 4.8),
-    }
-
+# =============================================================================
+# 6. UI: SIDEBAR
+# =============================================================================
+def render_sidebar(ctx: dict) -> None:
     with st.sidebar:
-        st.markdown("## 📈 ICBP.JK Terminal")
-        st.caption("**PT Indofood CBP Sukses Makmur Tbk**  \nIDX Consumer Non-Cyclicals | Jakarta")
-        st.markdown("---")
-
-        st.markdown("### 🌐 Global Terminal Controls")
-        period_mode = st.radio(
-            "Reporting Period Toggle",
-            options=["Annual (5Y)", "Quarterly (LTM)"],
-            index=0,
-            help="Switch fundamental KPIs, charts, and statement tables between 5-Year Annual (FY21–FY25) and 8-Quarter Interim (1Q24–4Q25).",
-        )
-        active_scenario = st.selectbox(
-            "Active Valuation Scenario",
-            options=["Base", "Bull", "Bear"],
-            index=0,
-            help="Select active DCF valuation scenario across Executive Summary and Valuation tabs.",
-        )
-
-        # Compute live target price from session state sliders if initialized, else defaults
-        cagr_p, marg_p, wacc_p, g_p, cx_p = default_params[active_scenario]
-        s_key_prefix = active_scenario.lower()
-        cagr_val = st.session_state.get(f"{s_key_prefix}_cagr", cagr_p)
-        marg_val = st.session_state.get(f"{s_key_prefix}_m", marg_p)
-        wacc_val = st.session_state.get(f"{s_key_prefix}_wacc", wacc_p)
-        g_val = st.session_state.get(f"{s_key_prefix}_g", g_p)
-        cx_val = st.session_state.get(f"{s_key_prefix}_cx", cx_p)
-
-        sidebar_dcf = run_dcf_model(
-            latest_ann["revenue"],
-            cagr_val,
-            marg_val,
-            wacc_val,
-            g_val,
-            cx_val,
-            total_debt=latest_ann["total_debt"],
-            cash_and_equiv=latest_ann["cash_and_equiv"],
-            shares_out_bn=latest_ann["shares_out_bn"],
-            current_price=current_share_price,
-        )
-
-        target_px = sidebar_dcf["implied_share_price"]
-        upside_pct = sidebar_dcf["upside_pct"]
-
-        if upside_pct >= 12.0:
-            rating_str, badge_cls = "BUY", "badge-buy"
-        elif upside_pct >= -5.0:
-            rating_str, badge_cls = "HOLD", "badge-hold"
+        st.markdown(f"### {TICKER}")
+        st.caption(COMPANY)
+        px = ctx["data"]["price"]
+        chg = ctx["last_close"] / px["close"].iloc[-2] - 1
+        st.metric("Share Price (mock, IDR)", f"{ctx['last_close']:,.0f}", f"{chg:+.2%} d/d")
+        c1, c2 = st.columns(2)
+        c1.metric("Target Price", f"{ctx['tp']:,.0f}")
+        c2.metric("Upside", f"{ctx['tp'] / ctx['last_close'] - 1:+.1%}")
+        st.markdown(f"<span class='badge badge-{ctx['rating']}'>{ctx['rating']}</span> "
+                    f"<span class='small-note'>&nbsp;{ctx['scenario']} case DCF</span>", unsafe_allow_html=True)
+        st.divider()
+        st.radio("Reporting Period", ["Annual (5Y)", "Quarterly (LTM)"], key="period")
+        st.radio("Active Valuation Scenario", SCENARIOS, key="scenario", horizontal=True)
+        if ctx["period"].startswith("Annual"):
+            export = ctx["fin"].drop(columns=["period_label"], errors="ignore")
+            fname = "icbp_annual_financials_clean.csv"
         else:
-            rating_str, badge_cls = "SELL", "badge-sell"
+            export = ctx["q"]
+            fname = "icbp_quarterly_financials_clean.csv"
+        st.download_button("⬇ Export cleaned dataset (CSV)", data=export.to_csv(index=False).encode("utf-8"),
+                           file_name=fname, mime="text/csv")
+        st.divider()
+        st.caption(f"Data as of {AS_OF:%d %b %Y}. Synthetic data; not investment advice.")
 
-        st.markdown("---")
-        st.markdown("### 🎯 Live Valuation Snapshot")
-        st.markdown(
-            f"""
-            <div style="background:rgba(15,23,42,0.85); border:1px solid rgba(0,245,212,0.3); border-radius:10px; padding:14px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span style="color:#94A3B8; font-size:0.82rem;">Consensus Rating</span>
-                    <span class="{badge_cls}">{rating_str}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                    <span style="color:#CBD5E1; font-size:0.85rem;">Last Price:</span>
-                    <strong style="color:#F8FAFC;">Rp {current_share_price:,.0f}</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                    <span style="color:#CBD5E1; font-size:0.85rem;">Target ({active_scenario}):</span>
-                    <strong style="color:#00F5D4;">Rp {target_px:,.0f}</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between;">
-                    <span style="color:#CBD5E1; font-size:0.85rem;">Implied Return:</span>
-                    <strong style="color:{'#00F5D4' if upside_pct >= 0 else '#EF4444'};">{upside_pct:+.1f}%</strong>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-        st.markdown("---")
-        is_qtr = period_mode == "Quarterly (LTM)"
-        df_export = df_quarterly_ratios if is_qtr else df_annual_ratios
-        csv_bytes = df_export.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label=f"📥 Export {period_mode} Dataset (CSV)",
-            data=csv_bytes,
-            file_name=f"ICBP_Cleaned_Financials_{'Quarterly' if is_qtr else 'Annual_5Y'}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
+# =============================================================================
+# 7. UI: TAB 1 - EXECUTIVE SUMMARY
+# =============================================================================
+def risk_card(title: str, severity: str, body: str, impact: str, mitigant: str) -> str:
+    color = {"High": RED, "Medium": AMBER, "Low": TEAL}[severity]
+    return (f"<div class='risk-card' style='border-left:4px solid {color}'>"
+            f"<div class='risk-head'><span>{title}</span><span class='tag' style='background:{color}22;color:{color}'>{severity.upper()}</span></div>"
+            f"<p>{body}</p><p class='impact'>{impact}</p><p><b>Mitigant:</b> {mitigant}</p></div>")
 
-    # Top Institutional Banner
-    st.markdown(
-        f"""
-        <div class="terminal-banner">
-            <div>
-                <h2 style="margin:0; font-size:1.55rem; color:#F8FAFC;">
-                    PT Indofood CBP Sukses Makmur Tbk <span style="color:#00F5D4;">(IDX: ICBP.JK)</span>
-                </h2>
-                <span style="color:#94A3B8; font-size:0.86rem;">
-                    Institutional Equity Research &amp; Quantitative Valuation Intelligence | Mode: <strong>{period_mode}</strong> | Scenario: <strong>{active_scenario} Case</strong>
-                </span>
-            </div>
-            <div style="text-align:right;">
-                <span class="{badge_cls}" style="font-size:0.95rem;">{rating_str} — TP Rp {target_px:,.0f} ({upside_pct:+.1f}%)</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
-    tabs = st.tabs(
-        [
-            "1️⃣ Executive Summary & Business Model",
-            "2️⃣ 5Y Financial Fundamentals & Ratios",
-            "3️⃣ Forecasting & DCF Valuation Engine",
-            "4️⃣ Peer Comps & Relative Valuation",
-            "5️⃣ Technicals & Macro/Risk Exposure",
-            "6️⃣ Data Provenance, Validation & Docs",
-        ]
-    )
+def render_summary_tab(ctx: dict) -> None:
+    l = ctx["fin"].iloc[-1]
+    res, comps = ctx["dcf"][ctx["scenario"]], ctx["comps"]
+    peers, c = comps[comps["ticker"] != "ICBP"], comps.iloc[0]
+    left, right = st.columns([2.3, 1])
+    with left:
+        st.subheader("Investment Thesis & Equity Research Report")
+        st.markdown(f"""
+**Recommendation: {ctx['rating']}  |  Target Price IDR {ctx['tp']:,.0f} ({ctx['tp'] / ctx['last_close'] - 1:+.1%})  |  {ctx['scenario']}-case DCF**
 
+**1. Moat - brands, scale and distribution.** ICBP is Indonesia's largest branded instant-noodle franchise (Indomie, Pop Mie)
+with adjacent dairy, snacks, seasonings, nutrition and beverage lines. Affordable price points, a nationwide distribution
+network and group-wide procurement scale (wheat, CPO, packaging) give it a cost and reach advantage that sub-scale rivals struggle to match.
+
+**2. Pinehill international expansion.** The Middle East & Africa business (Pinehill) has grown from
+**{ctx['mea_share_start']:.1%}** to **{ctx['mea_share']:.1%}** of sales since FY{FISCAL_YEARS[0]}, diversifying away from rupiah-only demand and
+adding a structurally higher-growth, under-penetrated noodle market.
+
+**3. Margins and returns.** EBIT margin has expanded to **{l['ebit_margin']:.1%}** and ROIC of **{l['roic']:.1%}** now sits
+{scenario_spread(l['roic'], res['assumptions']['wacc'])} versus the active-scenario WACC of {res['assumptions']['wacc']:.2%}.
+
+**4. Balance sheet.** Net debt/EBITDA of **{l['net_debt_ebitda']:.2f}x** and interest cover of **{l['interest_cov']:.1f}x** leave ample capacity for
+dividends (payout ~{PAYOUT:.0%}) and bolt-on M&A.
+
+**5. Valuation.** Shares trade at **{c['pe_fwd']:.1f}x** forward P/E and **{c['ev_ebitda']:.1f}x** EV/EBITDA versus peer medians
+of {peers['pe_fwd'].median():.1f}x and {peers['ev_ebitda'].median():.1f}x. Our DCF yields IDR {res['price']:,.0f} per share;
+{res['tv_share']:.0%} of EV comes from terminal value.
+
+**What would change our view:** sustained USD/IDR weakness without pricing action, wheat/CPO spikes above our bull-case cost
+assumptions, or a trade-down shift in noodles volume.
+""")
+        st.caption("All figures are produced from synthetic data for demonstration purposes.")
+    with right:
+        st.subheader("Snapshot")
+        st.markdown(f"<span class='badge badge-{ctx['rating']}'>{ctx['rating']}</span>", unsafe_allow_html=True)
+        st.metric("DCF Value / Share", f"IDR {res['price']:,.0f}", f"{res['upside']:+.1%} vs last")
+        st.metric("Enterprise Value", fmt_idr(res["ev"]))
+        st.metric("P/E TTM  |  Fwd", f"{c['pe_ttm']:.1f}x  |  {c['pe_fwd']:.1f}x")
+        st.metric("Dividend Yield", f"{c['div_yield']:.1f}%")
+
+    st.divider()
+    st.subheader("Revenue Segments Breakdown")
+    seg = ctx["data"]["segments"].merge(ctx["fin"][["fiscal_year", "revenue"]], on="fiscal_year")
+    seg["rev_bn"] = seg["share"] * seg["revenue"]
+    geo = ctx["data"]["geo"].merge(ctx["fin"][["fiscal_year", "revenue"]], on="fiscal_year")
+    geo["rev_bn"] = geo["share"] * geo["revenue"]
+    yr = st.select_slider("Fiscal year (donut charts)", options=FISCAL_YEARS, value=FISCAL_YEARS[-1], key="seg_year")
+    r1a, r1b = st.columns(2)
+    with r1a:
+        s = seg[seg["fiscal_year"] == yr].set_index("segment").loc[SEGMENTS].reset_index()
+        fig = go.Figure(go.Pie(labels=s["segment"], values=s["rev_bn"], hole=0.55, marker=dict(colors=PALETTE),
+                               textinfo="label+percent", sort=False))
+        show_chart(style_fig(fig, 360, f"Revenue by Division - FY{yr}", unified=False), key="seg_donut")
+    with r1b:
+        fig = go.Figure()
+        for i, name in enumerate(SEGMENTS):
+            d = seg[seg["segment"] == name]
+            fig.add_bar(x=[f"FY{y}" for y in d["fiscal_year"]], y=d["rev_bn"], name=name, marker_color=PALETTE[i])
+        fig.update_layout(barmode="stack")
+        fig.update_yaxes(title="IDR bn")
+        show_chart(style_fig(fig, 360, "Divisional Revenue, FY21-FY25 (IDR bn)"), key="seg_stack")
+    r2a, r2b = st.columns(2)
+    with r2a:
+        g = geo[geo["fiscal_year"] == yr]
+        fig = go.Figure(go.Pie(labels=g["region"], values=g["rev_bn"], hole=0.55, marker=dict(colors=[BLUE, AMBER]),
+                               textinfo="label+percent", sort=False))
+        show_chart(style_fig(fig, 320, f"Geographic Split - FY{yr}", unified=False), key="geo_donut")
+    with r2b:
+        fig = go.Figure()
+        for i, name in enumerate(REGIONS):
+            d = geo[geo["region"] == name]
+            fig.add_bar(x=[f"FY{y}" for y in d["fiscal_year"]], y=d["rev_bn"], name=name, marker_color=[BLUE, AMBER][i])
+        fig.update_layout(barmode="stack")
+        fig.update_yaxes(title="IDR bn")
+        show_chart(style_fig(fig, 320, "Indonesia vs Middle East & Africa (IDR bn)"), key="geo_stack")
+
+    st.divider()
+    st.subheader("Key Risks Matrix")
+    mb = macro_base(ctx["fin"])
+    fx = macro_impact(mb, fx=0.10)["d_eps_pct"]
+    wh = macro_impact(mb, wheat=0.20)["d_eps_pct"]
+    cp = macro_impact(mb, cpo=0.20)["d_eps_pct"]
+    inf = macro_impact(mb, infl_pp=1.0)["d_eps_pct"]
+    cols = st.columns(3)
+    cards = [
+        risk_card("FX / USD debt exposure", "High", "Unhedged USD borrowings plus USD-linked wheat and packaging make earnings sensitive to rupiah weakness.",
+                  f"10% IDR depreciation: EPS {fx:+.1%} (after 35% pass-through)", "Natural USD hedge from Pinehill revenue; forward cover; pricing actions."),
+        risk_card("Wheat & CPO inflation", "High", "Wheat (~32% of COGS) and palm oil (~12%) are the largest cost lines; price increases lag input costs by 2-3 quarters.",
+                  f"Wheat +20%: EPS {wh:+.1%}; CPO +20%: EPS {cp:+.1%}", "Forward purchasing, multi-origin sourcing, selective price increases."),
+        risk_card("Consumer purchasing power", "Medium", "Mass-market noodles are defensive but volumes soften when inflation outpaces wages; trade-down hits premium lines.",
+                  f"Inflation +1pp: EPS {inf:+.1%} (volume and cost effects)", "Value packs, price-point architecture, export diversification."),
+    ]
+    for col, html in zip(cols, cards):
+        col.markdown(html, unsafe_allow_html=True)
+    cols2 = st.columns(3)
+    cols2[0].markdown(risk_card("Competition", "Medium", "Aggressive local noodle brands and regional price wars can pressure share and promotional spend.",
+                                "Each 100 bp of gross-margin erosion is roughly 5-6% of EBIT", "Brand strength, distribution depth, innovation pipeline."), unsafe_allow_html=True)
+    cols2[1].markdown(risk_card("Regulation & tariffs", "Low", "Wheat import policy, halal/labelling rules and sugar/sodium regulation could raise costs or compliance burden.",
+                                "Hard to quantify; monitor policy calendar", "Government engagement, reformulation capability."), unsafe_allow_html=True)
+    with cols2[2]:
+        rk = pd.DataFrame({"risk": ["FX", "Wheat/CPO", "Purchasing power", "Competition", "Regulation"],
+                           "likelihood": [4, 4, 3, 3, 2], "impact": [4, 4, 3, 3, 2]})
+        fig = go.Figure(go.Scatter(x=rk["likelihood"], y=rk["impact"], mode="markers+text", text=rk["risk"],
+                                   textposition="top center", marker=dict(size=18, color=[RED, RED, AMBER, AMBER, TEAL])))
+        fig.update_xaxes(range=[0.5, 5.5], title="Likelihood")
+        fig.update_yaxes(range=[0.5, 5.5], title="Impact")
+        show_chart(style_fig(fig, 250, "Likelihood / Impact", unified=False), key="risk_matrix")
+
+
+# =============================================================================
+# 8. UI: TAB 2 - FUNDAMENTALS
+# =============================================================================
+IS_LINES = [("Revenue", "revenue"), ("COGS", "cogs"), ("Gross Profit", "gross_profit"), ("Operating Expenses", "opex"),
+            ("EBIT", "ebit"), ("D&A", "da"), ("EBITDA", "ebitda"), ("Interest Expense", "interest_expense"),
+            ("Other Income", "other_income"), ("Pre-tax Income", "pretax_income"), ("Tax", "tax"),
+            ("Net Income", "net_income"), ("Minority Interest", "minority_interest"),
+            ("Net Income (Parent)", "net_income_parent"), ("EPS (IDR)", "eps")]
+BS_LINES = [("Cash", "cash"), ("Receivables", "receivables"), ("Inventories", "inventories"),
+            ("Other Current Assets", "other_ca"), ("PP&E", "ppe"), ("Goodwill & Intangibles", "goodwill"),
+            ("Other Non-current Assets", "other_nca"), ("Total Assets", "total_assets"), ("Payables", "payables"),
+            ("Short-term Debt", "st_debt"), ("Other Current Liabilities", "other_cl"), ("Long-term Debt", "lt_debt"),
+            ("Other Non-current Liabilities", "other_ncl"), ("Total Liabilities", "total_liabilities"),
+            ("Total Equity", "total_equity"), ("of which NCI", "nci")]
+CF_LINES = [("Operating Cash Flow", "cfo"), ("CapEx", "capex"), ("Free Cash Flow", "fcf"), ("Dividends Paid", "dividends"),
+            ("Net Borrowing", "net_borrowing"), ("Other Investing", "other_investing"), ("Net Change in Cash", "net_change_cash")]
+
+
+def statement_table(df: pd.DataFrame, lines: list, label_col: str) -> pd.DataFrame:
+    t = df.set_index(label_col)[[c for _, c in lines]].T.astype(float)
+    t.index = [lab for lab, _ in lines]
+    t.columns = [str(c) for c in t.columns]
+    t["Trend"] = t.apply(lambda r: r.tolist(), axis=1)
+    return t
+
+
+def render_fundamentals_tab(ctx: dict) -> None:
+    fin, q, annual = ctx["fin"], ctx["q"], ctx["period"].startswith("Annual")
+    st.caption(f"View: **{ctx['period']}**. Return, leverage and working-capital ratios are balance-sheet based and always shown annually.")
+    cols = st.columns(6)
+    for col, (lab, val, delta) in zip(cols, kpi_values(ctx)):
+        col.metric(lab, val, delta)
+
+    d = fin if annual else q
+    xs = list(fin["period_label"]) if annual else list(q["period"])
+
+    st.subheader("Profitability & Growth")
+    a, b = st.columns(2)
+    with a:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.add_bar(x=xs, y=d["revenue"], name="Revenue (IDR bn)", marker_color=BLUE, secondary_y=False)
+        fig.add_trace(go.Scatter(x=xs, y=d["net_income_parent"], name="Net income, parent (IDR bn)", mode="lines+markers",
+                                 line=dict(color=TEAL, width=3)), secondary_y=True)
+        if annual:
+            title = (f"Revenue CAGR {cagr(fin['revenue'].iloc[0], fin['revenue'].iloc[-1], len(fin) - 1):.1%} | "
+                     f"Earnings CAGR {cagr(fin['net_income_parent'].iloc[0], fin['net_income_parent'].iloc[-1], len(fin) - 1):.1%} (FY21-FY25)")
+        else:
+            title = f"LTM revenue growth {ctx['ltm']['cur']['revenue'] / ctx['ltm']['prv']['revenue'] - 1:+.1%} vs prior LTM"
+        show_chart(style_fig(fig, 380, title), key="rev_ni")
+    with b:
+        fig = go.Figure()
+        for (name, col), color in zip({"Gross": "gross_margin", "EBIT": "ebit_margin", "EBITDA": "ebitda_margin", "Net": "net_margin"}.items(),
+                                      [TEAL, BLUE, AMBER, RED]):
+            fig.add_trace(go.Scatter(x=xs, y=d[col] * 100, name=f"{name} margin", mode="lines+markers", line=dict(color=color, width=3)))
+        fig.update_yaxes(title="%", ticksuffix="%")
+        show_chart(style_fig(fig, 380, "Margin Evolution"), key="margins")
+
+    st.subheader("Returns & Leverage")
+    wacc = ctx["dcf"][ctx["scenario"]]["assumptions"]["wacc"]
+    labels = list(fin["period_label"])
+    a, b = st.columns(2)
+    with a:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.add_bar(x=labels, y=fin["roic_wacc_spread"] * 100, name="ROIC - WACC spread (pp)", marker_color="rgba(0,245,212,0.25)", secondary_y=True)
+        fig.add_trace(go.Scatter(x=labels, y=fin["roic"] * 100, name="ROIC", mode="lines+markers", line=dict(color=TEAL, width=3)), secondary_y=False)
+        fig.add_trace(go.Scatter(x=labels, y=fin["roe"] * 100, name="ROE", mode="lines+markers", line=dict(color=BLUE, width=3)), secondary_y=False)
+        fig.add_trace(go.Scatter(x=labels, y=[wacc * 100] * len(labels), name=f"WACC ({ctx['scenario']})", mode="lines",
+                                 line=dict(color=AMBER, dash="dash", width=2)), secondary_y=False)
+        fig.update_yaxes(title_text="%", secondary_y=False)
+        fig.update_yaxes(title_text="Spread (pp)", secondary_y=True, showgrid=False)
+        show_chart(style_fig(fig, 360, "ROIC & ROE vs WACC"), key="roic_wacc")
+    with b:
+        st.markdown("**DuPont decomposition of ROE**")
+        dp = pd.DataFrame({"Net margin (parent)": fin["dupont_margin"] * 100, "x Asset turnover": fin["asset_turnover"],
+                           "x Equity multiplier": fin["equity_multiplier"], "= ROE (%)": fin["roe"] * 100}).T
+        dp.columns = labels
+        sty = dp.style.format("{:.2f}").format("{:.1f}%", subset=pd.IndexSlice[["Net margin (parent)", "= ROE (%)"], :])
+        show_df(sty)
+        st.caption("ROE = (Parent NI / Revenue) x (Revenue / Assets) x (Assets / Parent equity), on year-end balances.")
+    a, b = st.columns(2)
+    with a:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.add_bar(x=labels, y=fin["net_debt_ebitda"], name="Net debt / EBITDA (x)", marker_color=TEAL, secondary_y=False)
+        fig.add_trace(go.Scatter(x=labels, y=fin["debt_equity"], name="Debt / Equity (x)", mode="lines+markers", line=dict(color=AMBER, width=3)), secondary_y=True)
+        show_chart(style_fig(fig, 340, "Leverage"), key="leverage")
+    with b:
+        fig = go.Figure(go.Bar(x=labels, y=fin["interest_cov"], marker_color=BLUE, text=[f"{v:.1f}x" for v in fin["interest_cov"]], textposition="outside"))
+        fig.update_yaxes(title="EBIT / interest (x)")
+        show_chart(style_fig(fig, 340, "Interest Coverage"), key="int_cov")
+    a, b = st.columns(2)
+    with a:
+        fig = go.Figure()
+        fig.add_bar(x=labels, y=fin["ccc"], name="Cash conversion cycle", marker_color="rgba(59,130,246,0.35)")
+        for name, col, color in [("DSO", "dso", TEAL), ("DIO", "dio", AMBER), ("DPO", "dpo", RED)]:
+            fig.add_trace(go.Scatter(x=labels, y=fin[col], name=name, mode="lines+markers", line=dict(color=color, width=2)))
+        fig.update_yaxes(title="days")
+        show_chart(style_fig(fig, 340, "Working Capital: Cash Conversion Cycle"), key="ccc")
+    with b:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=labels, y=fin["ocf_to_ni"] * 100, name="OCF / Net income", mode="lines+markers", line=dict(color=TEAL, width=3)))
+        fig.add_trace(go.Scatter(x=labels, y=fin["ocf_to_ebitda"] * 100, name="OCF / EBITDA", mode="lines+markers", line=dict(color=BLUE, width=3)))
+        fig.add_trace(go.Scatter(x=labels, y=fin["fcf_margin"] * 100, name="FCF margin", mode="lines+markers", line=dict(color=AMBER, width=3)))
+        fig.update_yaxes(title="%", ticksuffix="%")
+        show_chart(style_fig(fig, 340, "Cash-Flow Quality"), key="ocf")
+
+    st.subheader("Interactive Financial Statements")
+    if annual:
+        choice = st.radio("Statement", ["Income Statement", "Balance Sheet", "Cash Flow"], horizontal=True, key="stmt_a")
+        view = {"Income Statement": ("v_income_statement", IS_LINES), "Balance Sheet": ("v_balance_sheet", BS_LINES),
+                "Cash Flow": ("v_cash_flow", CF_LINES)}[choice]
+        tbl = statement_table(fin.assign(period=fin["period_label"]), view[1], "period")
+    else:
+        choice = st.radio("Statement (quarterly)", ["Income Statement", "Cash Flow"], horizontal=True, key="stmt_q")
+        view = ("v_quarterly", IS_LINES if choice == "Income Statement" else
+                [("Operating Cash Flow", "cfo"), ("CapEx", "capex"), ("Free Cash Flow", "fcf")])
+        tbl = statement_table(q, view[1], "period")
+    cfg = {c: st.column_config.NumberColumn(c, format="%.1f") for c in tbl.columns if c != "Trend"}
+    cfg["Trend"] = st.column_config.LineChartColumn("Trend", width="small")
+    show_df(tbl, column_config=cfg)
+    st.caption("IDR billions (EPS in IDR). Sparkline shows the trajectory across the displayed periods.")
+
+    with st.expander("🔎 SQL data provenance inspector", expanded=False):
+        st.code(SQL_PIPELINE_DOC, language="sql")
+        st.markdown(f"**Cleaning view definition: `{view[0]}`**")
+        st.code(VIEW_SQL[view[0]], language="sql")
+        raw = RAW_TABLE_OF_VIEW[view[0]]
+        st.markdown(f"**Raw table preview: `{raw}` (IDR millions, uncleaned)**")
+        show_df(run_sql(f"SELECT * FROM {raw} LIMIT 5"))
+        st.markdown("**Run your own read-only query**")
+        user_sql = st.text_area("SQL (SELECT only)", value=f"SELECT fiscal_year, revenue, ebit, net_income_parent FROM v_income_statement", key="user_sql")
+        stripped = user_sql.strip().rstrip(";")
+        if stripped.lower().startswith("select") and ";" not in stripped:
+            try:
+                show_df(run_sql(stripped))
+            except Exception as exc:
+                st.error(f"Query error: {exc}")
+        else:
+            st.warning("Only a single SELECT statement is allowed.")
+
+
+# =============================================================================
+# 9. UI: TAB 3 - DCF
+# =============================================================================
+def render_dcf_tab(ctx: dict) -> None:
+    base, scn, price = ctx["base"], ctx["scenario"], ctx["last_close"]
+    st.subheader("Scenario Assumptions")
+    head_l, head_r = st.columns([5, 1])
+    head_l.caption(f"Base year FY{base['base_year']}A: revenue {fmt_idr(base['revenue'])}, EBIT margin {base['ebit_margin']:.1%}, "
+                   f"D&A {base['da_pct']:.1%} of sales, NWC {base['nwc_pct']:.1%} of sales, net debt {fmt_idr(base['net_debt'])}. "
+                   f"Active scenario (sidebar): **{scn}**.")
+    head_r.button("Reset scenarios", on_click=reset_scenarios)
+    cols = st.columns(3)
+    for col, s in zip(cols, SCENARIOS):
+        with col:
+            st.markdown(f"**{s} Case**" + ("  ✅ active" if s == scn else ""))
+            for key, label, lo, hi in SLIDER_SPECS:
+                st.slider(label, lo, hi, step=0.25, key=f"{s}_{key}")
+
+    res = ctx["dcf"][scn]
+    fc = res["forecast"]
+    st.subheader(f"5-Year Forecast - {scn} Case")
+    tbl = pd.DataFrame({
+        "Revenue": fc["revenue"], "Revenue growth %": fc["growth"] * 100, "Operating (EBIT) margin %": fc["ebit_margin"] * 100,
+        "EBIT": fc["ebit"], "NOPAT": fc["nopat"], "D&A": fc["da"], "CapEx": fc["capex"],
+        "Change in NWC": fc["d_nwc"], "Unlevered FCF": fc["ufcf"], "PV of UFCF": fc["pv_ufcf"],
+    }).T
+    sty = tbl.style.format("{:,.0f}").format("{:.1f}", subset=pd.IndexSlice[["Revenue growth %", "Operating (EBIT) margin %"], :])
+    show_df(sty)
+    st.caption("IDR billions unless stated. Year-end discounting; EBIT margin glides linearly to target.")
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_bar(x=fc.index, y=fc["revenue"], name="Revenue", marker_color=BLUE, secondary_y=False)
+    fig.add_bar(x=fc.index, y=fc["ufcf"], name="UFCF", marker_color=TEAL, secondary_y=False)
+    fig.add_trace(go.Scatter(x=fc.index, y=fc["ebit_margin"] * 100, name="EBIT margin %", mode="lines+markers",
+                             line=dict(color=AMBER, width=3)), secondary_y=True)
+    fig.update_layout(barmode="group")
+    fig.update_yaxes(title_text="IDR bn", secondary_y=False)
+    fig.update_yaxes(title_text="EBIT margin %", secondary_y=True, showgrid=False)
+    show_chart(style_fig(fig, 360, "Forecast Revenue, UFCF and Operating Margin"), key="fc_chart")
+
+    st.subheader("DCF Valuation Output")
+    m = st.columns(5)
+    m[0].metric("Enterprise Value", fmt_idr(res["ev"]))
+    m[1].metric("Implied Equity Value", fmt_idr(res["equity"]))
+    m[2].metric("Implied Share Price", f"IDR {res['price']:,.0f}")
+    m[3].metric("Current Price", f"IDR {price:,.0f}")
+    m[4].metric("Upside / Downside", f"{res['upside']:+.1%}")
+    a, b = st.columns([1, 2])
+    with a:
+        bridge = pd.DataFrame({"IDR bn": [res["pv_fcf"], res["pv_tv"], res["ev"], -res["net_debt"], -res["nci_fv"], res["equity"]]},
+                              index=["PV of UFCF (5Y)", "PV of terminal value", "Enterprise value", "Less: net debt (negative = net cash)",
+                                     "Less: NCI (1.5x book)", "Equity value"])
+        show_df(bridge.style.format("{:,.0f}"))
+        st.caption(f"Terminal value = {res['tv_share']:.0%} of EV; implied TV/EBITDA {res['tv_ebitda']:.1f}x.")
+        for s in SCENARIOS:
+            r = ctx["dcf"][s]
+            st.metric(f"{s} value / share", f"IDR {r['price']:,.0f}", f"{r['upside']:+.1%}")
+    with b:
+        ff = football_field_data(ctx)
+        fig = go.Figure(go.Bar(
+            y=ff["method"], x=ff["high"] - ff["low"], base=ff["low"], orientation="h",
+            marker=dict(color=[TEAL, "#94A3B8", BLUE, "#8B5CF6"]),
+            text=[f"{lo:,.0f} - {hi:,.0f}" for lo, hi in zip(ff["low"], ff["high"])], textposition="inside", insidetextanchor="middle"))
+        fig.add_vline(x=price, line_dash="dash", line_color=AMBER, annotation_text="Current", annotation_position="top")
+        fig.add_vline(x=res["price"], line_dash="dot", line_color=RED, annotation_text=f"DCF ({scn})", annotation_position="bottom")
+        fig.update_xaxes(title="IDR per share")
+        fig.update_yaxes(autorange="reversed")
+        show_chart(style_fig(fig, 360, "Football Field Valuation", unified=False), key="football")
+
+    st.subheader("Sensitivity: Implied Share Price (IDR)")
+    waccs, gs, z = sensitivity_grid(base, res["assumptions"], price)
+    fig = go.Figure(go.Heatmap(
+        z=z, x=[f"{w:.2%}" for w in waccs], y=[f"{g:.2%}" for g in gs], zmid=price,
+        colorscale=[[0, RED], [0.5, "#1F2937"], [1, TEAL]], text=np.where(np.isnan(z), "n/a", np.round(z, 0).astype(int).astype(str)),
+        texttemplate="%{text}", colorbar=dict(title="IDR")))
+    fig.update_xaxes(title="WACC")
+    fig.update_yaxes(title="Terminal growth")
+    show_chart(style_fig(fig, 400, f"WACC vs Terminal Growth ({scn}; colour centred on current price)", unified=False), key="heatmap")
+
+
+# =============================================================================
+# 10. UI: TAB 4 - PEER COMPS
+# =============================================================================
+def scatter_with_trend(df: pd.DataFrame, x: str, y: str, xt: str, yt: str, title: str, key: str):
+    peers, icbp = df[df["ticker"] != "ICBP"], df[df["ticker"] == "ICBP"].iloc[0]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=peers[x], y=peers[y], mode="markers+text", text=peers["ticker"], textposition="top center",
+                             name="Peers", marker=dict(size=15, color=BLUE, line=dict(width=1, color="#F8FAFC"))))
+    fig.add_trace(go.Scatter(x=[icbp[x]], y=[icbp[y]], mode="markers+text", text=["ICBP"], textposition="top center",
+                             name="ICBP", marker=dict(size=22, color=TEAL, symbol="diamond", line=dict(width=1, color="#F8FAFC"))))
+    prem, r2 = None, None
+    if len(peers) >= 3:
+        slope, icpt = np.polyfit(peers[x], peers[y], 1)
+        xs = np.linspace(min(peers[x].min(), icbp[x]), max(peers[x].max(), icbp[x]), 50)
+        fig.add_trace(go.Scatter(x=xs, y=slope * xs + icpt, mode="lines", name="Peer regression", line=dict(color=AMBER, dash="dash")))
+        implied = slope * icbp[x] + icpt
+        prem = icbp[y] / implied - 1 if implied > 0 else None
+        r2 = float(np.corrcoef(peers[x], peers[y])[0, 1] ** 2)
+    fig.update_xaxes(title=xt)
+    fig.update_yaxes(title=yt)
+    show_chart(style_fig(fig, 400, title, unified=False), key=key)
+    return prem, r2
+
+
+def render_comps_tab(ctx: dict) -> None:
+    comps = ctx["comps"]
+    st.subheader("Comparable Companies")
+    names = {"mcap_tn": "Mkt Cap (IDR T)", "pe_ttm": "P/E TTM", "pe_fwd": "P/E Fwd", "ev_ebitda": "EV/EBITDA", "pbv": "P/BV",
+             "roe": "ROE %", "op_margin": "Op Margin %", "div_yield": "Div Yield %", "ebitda_growth": "EBITDA Growth %"}
+    t = comps.set_index("ticker")[list(names)].rename(columns=names)
+    sty = (t.style.format("{:,.1f}").format("{:,.2f}", subset=["P/BV"])
+           .apply(lambda r: ["background-color: rgba(0,245,212,0.15); font-weight:700" if r.name == "ICBP" else "" for _ in r], axis=1))
+    show_df(sty)
+    peers = comps[comps["ticker"] != "ICBP"]
+    icbp = comps.iloc[0]
+    st.markdown("**ICBP premium / (discount) to peer median**")
+    cols = st.columns(5)
+    for col, (lab, key) in zip(cols, [("P/E TTM", "pe_ttm"), ("P/E Fwd", "pe_fwd"), ("EV/EBITDA", "ev_ebitda"), ("P/BV", "pbv"), ("ROE", "roe")]):
+        med = peers[key].median()
+        col.metric(lab, f"{icbp[key]:.1f}{'%' if key == 'roe' else 'x'}", f"{(icbp[key] / med - 1) * 100:+.0f}% vs median {med:.1f}")
+    st.caption("ICBP multiples are computed from the model (price, LTM earnings, FY25 book value); peer figures are synthetic.")
+
+    st.subheader("Valuation Maps")
+    hide = st.checkbox("Exclude UNVR (outlier: ROE ~80%, P/BV ~14x) from charts and regression", value=True, key="hide_unvr")
+    df = comps[comps["ticker"] != "UNVR"] if hide else comps
+    a, b = st.columns(2)
+    with a:
+        prem, r2 = scatter_with_trend(df, "roe", "pbv", "ROE (%)", "P/BV (x)", "ROE vs P/BV", "sc1")
+        if prem is not None:
+            st.metric("ICBP P/BV vs regression-implied", f"{prem:+.0%}", f"R² = {r2:.2f} (n={len(df) - 1} peers)")
+    with b:
+        prem2, r22 = scatter_with_trend(df, "ebitda_growth", "ev_ebitda", "EBITDA growth (%)", "EV/EBITDA (x)", "EBITDA Growth vs EV/EBITDA", "sc2")
+        if prem2 is not None:
+            st.metric("ICBP EV/EBITDA vs regression-implied", f"{prem2:+.0%}", f"R² = {r22:.2f} (n={len(df) - 1} peers)")
+    st.caption("With only 4-5 peers the regressions are illustrative; treat the premium/discount as a screening signal, not a valuation.")
+
+
+# =============================================================================
+# 11. UI: TAB 5 - TECHNICALS & MACRO
+# =============================================================================
+def render_technical_tab(ctx: dict) -> None:
+    px = add_indicators(ctx["data"]["price"])
+    st.subheader("Price Action & Momentum")
+    lb = st.radio("Lookback", ["3M", "6M", "1Y", "2Y", "Max"], index=2, horizontal=True, key="lookback")
+    n = {"3M": 63, "6M": 126, "1Y": 252, "2Y": 504, "Max": None}[lb]
+    d = px.tail(n) if n else px
+    last = px.iloc[-1]
+    m = st.columns(5)
+    m[0].metric("Last close", f"{last['close']:,.0f}", f"{last['close'] / px['close'].iloc[-2] - 1:+.2%}")
+    m[1].metric("RSI (14)", f"{last['rsi']:.0f}", "Overbought" if last["rsi"] > 70 else ("Oversold" if last["rsi"] < 30 else "Neutral"), delta_color="off")
+    m[2].metric("vs MA200", f"{(last['close'] / last['ma200'] - 1) * 100:+.1f}%", "MA50 > MA200" if last["ma50"] > last["ma200"] else "MA50 < MA200", delta_color="off")
+    m[3].metric("Realised vol (30d, ann.)", f"{last['vol30']:.1f}%")
+    hi52, lo52 = px.tail(252)["high"].max(), px.tail(252)["low"].min()
+    m[4].metric("52W range position", f"{(last['close'] - lo52) / (hi52 - lo52):.0%}", f"{lo52:,.0f} - {hi52:,.0f}", delta_color="off")
+
+    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.5, 0.14, 0.18, 0.18])
+    fig.add_trace(go.Candlestick(x=d["trade_date"], open=d["open"], high=d["high"], low=d["low"], close=d["close"], name="ICBP",
+                                 increasing_line_color=TEAL, increasing_fillcolor=TEAL,
+                                 decreasing_line_color=RED, decreasing_fillcolor=RED), row=1, col=1)
+    fig.add_trace(go.Scatter(x=d["trade_date"], y=d["ma50"], name="MA50", line=dict(color=AMBER, width=1.6)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=d["trade_date"], y=d["ma200"], name="MA200", line=dict(color=BLUE, width=1.6)), row=1, col=1)
+    vcol = np.where(d["close"] >= d["open"], TEAL, RED)
+    fig.add_trace(go.Bar(x=d["trade_date"], y=d["volume"], marker_color=vcol, name="Volume", opacity=0.7), row=2, col=1)
+    fig.add_trace(go.Scatter(x=d["trade_date"], y=d["rsi"], name="RSI (14)", line=dict(color="#8B5CF6", width=1.6)), row=3, col=1)
+    fig.add_hline(y=70, line_dash="dot", line_color=RED, row=3, col=1)
+    fig.add_hline(y=30, line_dash="dot", line_color=TEAL, row=3, col=1)
+    fig.add_trace(go.Scatter(x=d["trade_date"], y=d["vol30"], name="Ann. vol 30d (%)", fill="tozeroy",
+                             line=dict(color=AMBER, width=1.4), fillcolor="rgba(245,158,11,0.15)"), row=4, col=1)
+    fig.update_xaxes(rangeslider_visible=False, rangebreaks=[dict(bounds=["sat", "mon"])])
+    fig.update_yaxes(title_text="IDR", row=1, col=1)
+    fig.update_yaxes(title_text="Vol", row=2, col=1)
+    fig.update_yaxes(title_text="RSI", range=[0, 100], row=3, col=1)
+    fig.update_yaxes(title_text="Vol %", row=4, col=1)
+    show_chart(style_fig(fig, 820, f"{TICKER} - Price, Volume, RSI and Rolling Volatility"), key="tech")
+
+
+def render_macro_section(ctx: dict) -> None:
+    st.subheader("Macro & Commodity Sensitivity Analyzer")
+    mb = macro_base(ctx["fin"])
+    macro = ctx["data"]["macro"]
+    now = macro.iloc[-1]
+    st.caption(f"Latest macro (mock): USD/IDR {now['usdidr']:,.0f} | wheat ${now['wheat_usd_bu']:.2f}/bu | CPO ${now['cpo_usd_t']:,.0f}/t | "
+               f"BI rate {now['bi_rate_pct']:.2f}% | inflation {now['inflation_yoy_pct']:.2f}%. "
+               f"Base = FY{int(ctx['fin'].iloc[-1]['fiscal_year'])}: COGS mix wheat {COST_MIX['wheat']:.0%}, CPO {COST_MIX['cpo']:.0%}, "
+               f"other raw/packaging {COST_MIX['other_raw']:.0%}, overhead {COST_MIX['overhead']:.0%}.")
+    left, right = st.columns([1, 2])
+    with left:
+        fx = st.slider("USD/IDR change (%)", -20.0, 30.0, 0.0, 1.0, key="mx_fx")
+        wheat = st.slider("Global wheat price (%)", -30.0, 50.0, 0.0, 1.0, key="mx_wheat")
+        cpo = st.slider("CPO price (%)", -30.0, 50.0, 0.0, 1.0, key="mx_cpo")
+        bi = st.slider("BI rate change (bps)", -200, 200, 0, 25, key="mx_bi")
+        infl = st.slider("Domestic inflation change (pp)", -2.0, 4.0, 0.0, 0.25, key="mx_infl")
+        pt = st.slider("Price pass-through of cost change (%)", 0.0, 100.0, 35.0, 5.0, key="mx_pt")
+    shocks = dict(fx=fx / 100, wheat=wheat / 100, cpo=cpo / 100, bi_bps=float(bi), infl_pp=infl, pass_through=pt / 100)
+    out = macro_impact(mb, **shocks)
+    with right:
+        m = st.columns(4)
+        m[0].metric("COGS change", f"{out['d_cogs_pct']:+.1%}")
+        m[1].metric("Gross margin", f"{out['gm_new']:.1%}", f"{(out['gm_new'] - out['gm_base']) * 1e4:+.0f} bps")
+        m[2].metric("EBIT change", f"{out['d_ebit_pct']:+.1%}")
+        m[3].metric("EPS (IDR)", f"{out['eps_new']:,.0f}", f"{out['d_eps_pct']:+.1%}")
+        comp = out["components"]
+        labels = ["Base EPS"] + list(comp) + ["Pro forma EPS"]
+        vals = [mb["eps"]] + list(comp.values()) + [out["eps_new"]]
+        fig = go.Figure(go.Waterfall(x=labels, y=vals, measure=["absolute"] + ["relative"] * len(comp) + ["total"],
+                                     increasing=dict(marker=dict(color=TEAL)), decreasing=dict(marker=dict(color=RED)),
+                                     totals=dict(marker=dict(color=BLUE)), connector=dict(line=dict(color="#475569"))))
+        fig.update_yaxes(title="IDR per share")
+        show_chart(style_fig(fig, 340, "EPS Bridge: Base to Pro Forma", unified=False), key="mx_wf")
+
+    a, b = st.columns(2)
+    with a:
+        factors = [("USD/IDR ±10%", "fx", 0.10), ("Wheat ±20%", "wheat", 0.20), ("CPO ±20%", "cpo", 0.20),
+                   ("BI rate ±100bp", "bi_bps", 100.0), ("Inflation ±1pp", "infl_pp", 1.0)]
+        rows = []
+        for lab, k, sz in factors:
+            up = macro_impact(mb, **{**{"pass_through": pt / 100}, k: sz})["d_eps_pct"] * 100
+            dn = macro_impact(mb, **{**{"pass_through": pt / 100}, k: -sz})["d_eps_pct"] * 100
+            rows.append((lab, up, dn))
+        tor = pd.DataFrame(rows, columns=["factor", "up", "down"])
+        tor = tor.reindex(tor[["up", "down"]].abs().max(axis=1).sort_values().index)
+        fig = go.Figure()
+        fig.add_bar(y=tor["factor"], x=tor["up"], orientation="h", name="Shock up", marker_color=RED)
+        fig.add_bar(y=tor["factor"], x=tor["down"], orientation="h", name="Shock down", marker_color=TEAL)
+        fig.update_layout(barmode="relative")
+        fig.update_xaxes(title="EPS change (%)")
+        show_chart(style_fig(fig, 340, "Tornado: EPS Sensitivity by Factor", unified=False), key="tornado")
+    with b:
+        corr = macro_correlation(ctx["data"]["price"], macro)
+        fig = go.Figure(go.Heatmap(z=corr.values, x=corr.columns, y=corr.index, zmin=-1, zmax=1,
+                                   colorscale=[[0, RED], [0.5, "#1F2937"], [1, TEAL]],
+                                   text=np.round(corr.values, 2), texttemplate="%{text}"))
+        show_chart(style_fig(fig, 340, "Monthly Change Correlations (ICBP vs Macro)", unified=False), key="corr")
+    st.caption("The correlation matrix is computed on synthetic series, so it illustrates the method only. The scenario model above uses explicit cost-mix and pass-through assumptions.")
+
+    a, b = st.columns(2)
+    with a:
+        reb = pd.DataFrame({"date": macro["obs_date"]})
+        for name, col in [("USD/IDR", "usdidr"), ("Wheat", "wheat_usd_bu"), ("CPO", "cpo_usd_t")]:
+            reb[name] = macro[col] / macro[col].iloc[0] * 100
+        fig = go.Figure()
+        for name, color in zip(["USD/IDR", "Wheat", "CPO"], [TEAL, AMBER, BLUE]):
+            fig.add_trace(go.Scatter(x=reb["date"], y=reb[name], name=name, line=dict(color=color, width=2)))
+        show_chart(style_fig(fig, 320, "FX & Commodities (rebased to 100)"), key="mx_hist1")
+    with b:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.add_trace(go.Scatter(x=macro["obs_date"], y=macro["bi_rate_pct"], name="BI rate %", line=dict(color=RED, width=2, shape="hv")), secondary_y=False)
+        fig.add_trace(go.Scatter(x=macro["obs_date"], y=macro["inflation_yoy_pct"], name="Inflation YoY %", line=dict(color=TEAL, width=2)), secondary_y=False)
+        show_chart(style_fig(fig, 320, "Policy Rate & Inflation"), key="mx_hist2")
+
+
+# =============================================================================
+# 12. UI: TAB 6 - PROVENANCE, VALIDATION, DOCS
+# =============================================================================
+def render_provenance_tab(ctx: dict) -> None:
+    st.subheader("Calculation Audit & Validation Checks")
+    checks = run_validation(ctx)
+    passed = int(checks["Status"].str.contains("PASS").sum())
+    (st.success if passed == len(checks) else st.error)(f"{passed} / {len(checks)} checks passed")
+    show_df(checks, hide_index=True)
+
+    st.subheader("Data Lineage")
+    st.code(SQL_PIPELINE_DOC, language="sql")
+    with st.expander("All view definitions (SQL)"):
+        for name, sql in VIEW_SQL.items():
+            st.markdown(f"**{name}**")
+            st.code(sql, language="sql")
+
+    st.subheader("Exportable Research Note")
+    note = build_research_note(ctx)
+    a, b = st.columns(2)
+    with a:
+        st.markdown("**Preview**")
+        with st.container(border=True):
+            st.markdown(note)
+    with b:
+        st.markdown("**Copyable markdown**")
+        st.code(note, language="markdown")
+    st.download_button("⬇ Download research note (.md)", data=note.encode("utf-8"), file_name="ICBP_research_note.md", mime="text/markdown")
+
+    st.subheader("GitHub README.md Template")
+    readme = build_readme()
+    with st.expander("Preview README", expanded=False):
+        st.markdown(readme)
+    st.code(readme, language="markdown")
+    st.download_button("⬇ Download README.md", data=readme.encode("utf-8"), file_name="README.md", mime="text/markdown")
+
+
+# =============================================================================
+# 13. TAB ROUTER & MAIN
+# =============================================================================
+def render_tabs(ctx: dict) -> None:
+    tabs = st.tabs(["📋 Executive Summary", "📊 Fundamentals", "🧮 DCF Valuation", "⚖️ Peer Comps",
+                    "📉 Technicals & Macro", "🧾 Data & Docs"])
     with tabs[0]:
-        render_tab1_executive_summary(db, df_annual_ratios, sidebar_dcf, active_scenario)
-
+        render_summary_tab(ctx)
     with tabs[1]:
-        active_df = df_quarterly_ratios if (period_mode == "Quarterly (LTM)") else df_annual_ratios
-        render_tab2_financial_fundamentals(db, active_df, is_quarterly=(period_mode == "Quarterly (LTM)"))
-
+        render_fundamentals_tab(ctx)
     with tabs[2]:
-        dcf_models = render_tab3_dcf_valuation(db, df_annual_ratios, active_scenario)
-
+        render_dcf_tab(ctx)
     with tabs[3]:
-        render_tab4_peer_comps(db)
-
+        render_comps_tab(ctx)
     with tabs[4]:
-        render_tab5_technicals_and_macro(db, df_annual_ratios)
-
+        render_technical_tab(ctx)
+        st.divider()
+        render_macro_section(ctx)
     with tabs[5]:
-        render_tab6_audit_and_docs(db, df_annual_ratios, df_quarterly_ratios, dcf_models)
+        render_provenance_tab(ctx)
 
 
-if __name__ == "__main__":
-    render_tabs()
+def main() -> None:
+    inject_css()
+    init_state()
+    st.title("📈 ICBP Equity Research Terminal")
+    st.caption(f"{COMPANY} (IDX: {TICKER}) | Synthetic data for demonstration | Pricing date {AS_OF:%d %b %Y}")
+
+    data = load_data()
+    period, scenario = st.session_state["period"], st.session_state["scenario"]
+    assumptions = {s: get_assumptions(s) for s in SCENARIOS}
+    fin = compute_financial_ratios(data["income"], data["balance"], data["cashflow"], wacc=assumptions[scenario]["wacc"])
+    q = build_quarterly_frame(data["quarterly"])
+    last_close = float(data["price"]["close"].iloc[-1])
+    base = build_dcf_base(fin)
+    dcf = {s: run_dcf_model(base, assumptions[s], last_close) for s in SCENARIOS}
+    tp = round(dcf[scenario]["price"] / 50) * 50
+    mea = data["geo"][data["geo"]["region"] == "Middle East & Africa"].sort_values("fiscal_year")["share"]
+
+    ctx = dict(data=data, fin=fin, q=q, ltm=ltm_block(q, fin), base=base, dcf=dcf, period=period, scenario=scenario,
+               last_close=last_close, tp=tp, rating=rating_from_upside(tp / last_close - 1),
+               mea_share=float(mea.iloc[-1]), mea_share_start=float(mea.iloc[0]))
+    ctx["comps"] = build_comps(ctx)
+    render_sidebar(ctx)
+    render_tabs(ctx)
+
+
+main()
