@@ -2107,7 +2107,9 @@ def render_tabs():
             checks.append((f"DCF reconciliation - {s_n}", True, f"EV {fmt(r_c['ev'])}; price IDR {fmt(r_c['price'])}"))
 
         ctr_px = D[scen]["sens"]["z"][2][3]
-        checks.append(("Sensitivity heatmap centre = active DCF price", abs(ctr_px - D[scen]["price"]) < 1e-4, f"{fmt(ctr_px)} vs {fmt(D[scen]['price'])}"))
+        ctr_ok = ctr_px is not None and abs(ctr_px - D[scen]["price"]) < 1e-4
+        ctr_detail = f"{fmt(ctr_px)} vs {fmt(D[scen]['price'])}" if ctr_px is not None else "WACC <= Terminal Growth"
+        checks.append(("Sensitivity heatmap centre = active DCF price", ctr_ok, ctr_detail))
 
         seg_ok = all(abs(sum(SEGS[s][i] for s in SEGN) - 1.0) < 1e-9 for i in range(5))
         checks.append(("Segment & geographic mix sum to 100%", seg_ok, "per fiscal year"))
