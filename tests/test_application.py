@@ -88,5 +88,29 @@ class TestICBPEquityResearch(unittest.TestCase):
         self.assertLess(pe_row["Current_Value"], pe_row["Median"], "Current P/E must be lower than median.")
         self.assertLess(pe_row["Discount_To_Median_%"], -50.0, "Discount to median P/E must be over 50%.")
 
+    def test_sqlite_terminal_pipeline_and_dcf(self):
+        """Validates app.py SQLite3 pipeline, Balance Sheet equilibrium, and multi-scenario DCF engine."""
+        import sys
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        import app
+
+        db = app.init_sql_db()
+        df_ann = app.compute_financial_ratios(db["annual"], is_quarterly=False)
+        df_qtr = app.compute_financial_ratios(db["quarterly"], is_quarterly=True)
+
+        # Verify Balance Sheet equilibrium (Assets == Liabilities + Equity)
+        self.assertAlmostEqual(float(df_ann["bs_audit_diff"].abs().max()), 0.0, places=4)
+        self.assertAlmostEqual(float(df_qtr["bs_audit_diff"].abs().max()), 0.0, places=4)
+
+        # Verify DCF scenario monotonicity (Bull > Base > Bear)
+        rev_25 = float(df_ann.iloc[-1]["revenue"])
+        bull = app.run_dcf_model(rev_25, 10.2, 24.0, 7.8, 4.2, 4.2)
+        base = app.run_dcf_model(rev_25, 7.8, 22.5, 8.5, 3.5, 4.5)
+        bear = app.run_dcf_model(rev_25, 4.8, 19.2, 9.5, 2.5, 4.8)
+
+        self.assertGreater(bull["implied_share_price"], base["implied_share_price"])
+        self.assertGreater(base["implied_share_price"], bear["implied_share_price"])
+        self.assertEqual(base["df_sens"].shape, (7, 7))
+
 if __name__ == "__main__":
     unittest.main()
