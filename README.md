@@ -146,7 +146,7 @@ Clone the repository and install the production dependencies:
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/IDX-Equity-Research-Valuation-Intelligence.git
+git clone https://github.com/Akma86/IDX-Equity-Research-Valuation-Intelligence.git
 cd IDX-Equity-Research-Valuation-Intelligence
 
 # Create and activate virtual environment

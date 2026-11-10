@@ -117,3 +117,4 @@ If creating a video or GIF demonstration for GitHub, LinkedIn, or personal portf
    - **00:15 - 00:35:** Switch to Tab 4 (Interactive DCF Valuation), adjust the WACC slider and terminal growth slider, and show the target price sensitivity matrix.
    - **00:35 - 00:45:** Switch to Tab 3 (Pinehill footprint) and Tab 5 (Peer benchmarking) highlighting ICBP's superior margins vs Mayora and Unilever.
    - **00:45 - 01:00:** Conclude with the Conviction BUY thesis and terminal test suite pass.
+
